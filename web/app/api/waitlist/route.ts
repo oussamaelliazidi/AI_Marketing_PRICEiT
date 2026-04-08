@@ -7,7 +7,7 @@ const supabase = createClient(
 );
 
 export async function POST(req: NextRequest) {
-  const { email } = await req.json();
+  const { email, segment } = await req.json();
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "Invalid email address." }, { status: 400 });
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   const { error } = await supabase
     .from("waitlist")
-    .insert({ email: email.toLowerCase().trim() });
+    .insert({ email: email.toLowerCase().trim(), segment: segment || "unknown" });
 
   if (error) {
     if (error.code === "23505") {

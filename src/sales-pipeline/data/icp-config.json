@@ -1,0 +1,65 @@
+{
+  "company_name": "PRICEIT",
+  "product": "Construction pricing platform",
+  "segments": [
+    {
+      "id": "small_contractor",
+      "name": "Small Contractor",
+      "description": "Owner-operators and small crews who price jobs manually",
+      "company_size": { "min": 1, "max": 20 },
+      "titles": ["Owner", "Operator", "Foreman", "Sole Trader", "Principal"],
+      "industries": [
+        "General Contracting", "Roofing", "Plumbing", "Electrical",
+        "HVAC", "Painting", "Landscaping", "Flooring", "Carpentry"
+      ],
+      "pain_points": [
+        "Pricing jobs manually with spreadsheets",
+        "Under-bidding and losing margin",
+        "No time to build detailed estimates",
+        "Losing jobs to competitors who bid faster"
+      ],
+      "channels": ["Facebook contractor groups", "Thumbtack", "Angi", "Houzz Pro", "Local trade associations"],
+      "hook": "Stop leaving money on the table — price every job in under 2 minutes",
+      "intent_signals": ["pricing software", "estimating tool", "job costing", "bid calculator"],
+      "disqualifiers": ["employee count > 20", "no field operations", "residential only < $10K jobs"]
+    },
+    {
+      "id": "large_firm",
+      "name": "Large Construction Firm",
+      "description": "Established firms with dedicated estimating departments",
+      "company_size": { "min": 50, "max": 5000 },
+      "titles": [
+        "VP of Estimating", "Chief Estimator", "Director of Pre-Construction",
+        "Operations Manager", "CFO", "Project Director", "Estimating Manager"
+      ],
+      "industries": [
+        "Commercial Construction", "General Contracting", "Civil Engineering",
+        "Specialty Trades", "Design-Build", "Construction Management"
+      ],
+      "pain_points": [
+        "Estimating takes 2-5 days per bid",
+        "Rework after scope changes",
+        "No audit trail on pricing decisions",
+        "Margin misses on large projects",
+        "Estimating team bottleneck on bid volume"
+      ],
+      "channels": ["LinkedIn", "AGC chapters", "ABC chapters", "Procore Marketplace", "Trade shows"],
+      "hook": "Cut estimating time by 60% and never miss a margin target",
+      "intent_signals": ["estimating software", "construction ERP", "bid management", "project cost control"],
+      "disqualifiers": ["residential only", "under $1M annual revenue", "no estimating function"]
+    }
+  ],
+  "pipeline_stages": [
+    "prospect", "contacted", "engaged", "demo_scheduled", "demo_done", "beta_offered", "beta_signed"
+  ],
+  "scoring": {
+    "replied_to_outreach": 30,
+    "clicked_demo_link": 20,
+    "opened_3_plus_emails": 10,
+    "viewed_priceit_page": 15,
+    "company_size_matches_icp": 10,
+    "title_matches_icp": 15,
+    "priority_threshold": 60,
+    "immediate_outreach_threshold": 80
+  }
+}

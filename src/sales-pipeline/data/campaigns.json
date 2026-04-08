@@ -1,0 +1,94 @@
+{
+  "campaigns": [
+    {
+      "id": "small-contractor-beta",
+      "name": "SmallContractor-BetaOutreach",
+      "segment": "small_contractor",
+      "sequence_length": 5,
+      "sequence_days": [0, 2, 5, 9, 14],
+      "touches": [
+        {
+          "day": 0,
+          "type": "cold_email",
+          "subject": "Price a job in 2 minutes — worth a look?",
+          "hook": "Pain-led + soft CTA"
+        },
+        {
+          "day": 2,
+          "type": "follow_up",
+          "subject": "Re: Price a job in 2 minutes",
+          "hook": "Social proof + loom demo link"
+        },
+        {
+          "day": 5,
+          "type": "value_add",
+          "subject": "Free pricing template for contractors",
+          "hook": "Free resource — cost-per-trade cheat sheet"
+        },
+        {
+          "day": 9,
+          "type": "case_study",
+          "subject": "How [Contractor] priced a $45K job in 8 minutes",
+          "hook": "Mini case study"
+        },
+        {
+          "day": 14,
+          "type": "breakup",
+          "subject": "Last note from PRICEIT",
+          "hook": "Open door break-up"
+        }
+      ]
+    },
+    {
+      "id": "large-firm-beta",
+      "name": "LargeFirm-BetaOutreach",
+      "segment": "large_firm",
+      "sequence_length": 7,
+      "sequence_days": [0, 1, 4, 7, 10, 14, 21],
+      "touches": [
+        {
+          "day": 0,
+          "type": "linkedin_connect",
+          "subject": "LinkedIn connection + note",
+          "hook": "Reference their recent project/win"
+        },
+        {
+          "day": 1,
+          "type": "cold_email",
+          "subject": "Estimating cost vs PRICEIT ROI",
+          "hook": "ROI framing for decision-maker"
+        },
+        {
+          "day": 4,
+          "type": "feature_email",
+          "subject": "How PRICEIT fits your estimating workflow",
+          "hook": "Feature deep-dive + integration mention"
+        },
+        {
+          "day": 7,
+          "type": "case_study",
+          "subject": "Case study: From 3-day estimates to same-day",
+          "hook": "Case study PDF"
+        },
+        {
+          "day": 10,
+          "type": "phone",
+          "subject": "Voicemail",
+          "hook": "30-second pitch + calendar link"
+        },
+        {
+          "day": 14,
+          "type": "linkedin_message",
+          "subject": "LinkedIn follow-up",
+          "hook": "Check-in + live demo offer"
+        },
+        {
+          "day": 21,
+          "type": "breakup",
+          "subject": "Closing the loop on PRICEIT",
+          "hook": "Final value + open door"
+        }
+      ]
+    }
+  ]
+}
