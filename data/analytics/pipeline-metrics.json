@@ -1,0 +1,16 @@
+{
+  "last_updated": "2026-04-07",
+  "pipeline": {
+    "small_contractors": {
+      "prospect": 0, "contacted": 0, "engaged": 0,
+      "demo_scheduled": 0, "demo_done": 0, "beta_offered": 0, "beta_signed": 0
+    },
+    "large_firms": {
+      "prospect": 0, "contacted": 0, "engaged": 0,
+      "demo_scheduled": 0, "demo_done": 0, "beta_offered": 0, "beta_signed": 0
+    }
+  },
+  "content": {
+    "blog_posts": 0, "emails_sent": 0, "social_posts": 0, "waitlist_signups": 0
+  }
+}

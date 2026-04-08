@@ -1,0 +1,56 @@
+{
+  "campaign": "PRICEIT Beta Acquisition",
+  "status": "active",
+  "start_date": "2026-04-07",
+  "end_date": "2026-06-30",
+  "goal": {
+    "metric": "beta_users_signed",
+    "target": 50,
+    "breakdown": {
+      "small_contractors": 35,
+      "large_firms": 15
+    }
+  },
+  "segments": [
+    {
+      "id": "small-contractors",
+      "name": "Small Contractors",
+      "icp": {
+        "company_size": "1-10",
+        "title": ["owner", "operator", "foreman", "sole trader"],
+        "industry": ["general contracting", "roofing", "plumbing", "electrical", "HVAC", "painting"],
+        "pain_points": ["manual job pricing", "under-bidding", "lost margin"],
+        "channels": ["Facebook groups", "Thumbtack", "Angi", "Houzz Pro", "local trade associations"]
+      }
+    },
+    {
+      "id": "large-firms",
+      "name": "Large Construction Firms",
+      "icp": {
+        "company_size": "50+",
+        "title": ["VP of Estimating", "Chief Estimator", "Operations Manager", "CFO", "Director of Pre-Construction"],
+        "industry": ["commercial construction", "general contracting", "specialty trades"],
+        "pain_points": ["slow estimating", "rework after scope changes", "no audit trail", "margin misses"],
+        "channels": ["LinkedIn", "AGC chapters", "ABC chapters", "Procore Marketplace", "trade shows"]
+      }
+    }
+  ],
+  "skills": ["sales-pipeline", "content-ops"],
+  "kpis": {
+    "pipeline": {
+      "prospects_targeted": 500,
+      "outreach_sent": 0,
+      "engaged": 0,
+      "demos_scheduled": 0,
+      "demos_done": 0,
+      "beta_offered": 0,
+      "beta_signed": 0
+    },
+    "content": {
+      "blog_posts_published": 0,
+      "emails_sent": 0,
+      "social_posts_published": 0,
+      "waitlist_signups": 0
+    }
+  }
+}
