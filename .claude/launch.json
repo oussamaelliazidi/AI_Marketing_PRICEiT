@@ -3,10 +3,10 @@
   "configurations": [
     {
       "name": "PRICEIT Web (Next.js)",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "npm install && npm run dev"],
       "port": 3000,
-      "cwd": "web"
+      "cwd": "/Users/iPhoneXsMax/Documents/Claude_Cowork/AI_Marketing_PRICEiT/.claude/worktrees/clever-khorana/web"
     }
   ]
 }
