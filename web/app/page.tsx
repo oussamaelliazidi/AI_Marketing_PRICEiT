@@ -168,9 +168,14 @@ export default function Home() {
         <span className="text-xl font-black tracking-tight">
           PRICE<span className="text-yellow-400">IT</span>
         </span>
-        <a href="#waitlist" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
-          Join beta →
-        </a>
+        <div className="flex items-center gap-5">
+          <a href="/generate" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
+            Content engine
+          </a>
+          <a href="#waitlist" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
+            Join beta →
+          </a>
+        </div>
       </nav>
 
       {/* Hero */}
