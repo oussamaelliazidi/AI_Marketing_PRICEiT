@@ -354,10 +354,11 @@ export default function GeneratePage() {
                 <div className="text-red-400 text-sm">
                   <div className="font-semibold mb-1">Error</div>
                   <div>{error}</div>
-                  {error.includes("API key") && (
+                  {(error.includes("API key") || error.includes("api_key") || error.includes("auth")) && (
                     <div className="mt-3 text-zinc-500 text-xs">
-                      Add your Anthropic API key to <code className="bg-zinc-800 px-1 rounded">web/.env.local</code>:
-                      <pre className="mt-1 bg-zinc-800 p-2 rounded">ANTHROPIC_API_KEY=sk-ant-...</pre>
+                      Add your free Groq API key to <code className="bg-zinc-800 px-1 rounded">web/.env.local</code>:
+                      <pre className="mt-1 bg-zinc-800 p-2 rounded">GROQ_API_KEY=gsk_...</pre>
+                      <div className="mt-1">Get one free at <span className="text-yellow-400">console.groq.com</span></div>
                     </div>
                   )}
                 </div>
