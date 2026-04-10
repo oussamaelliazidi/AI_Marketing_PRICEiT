@@ -127,6 +127,40 @@ Each email: Subject line + 3–5 sentence body + single CTA.
 Day 0: Pain-led cold email. Day 3: Social proof follow-up. Day 7: Value-add or break-up.`,
 };
 
+// ── Random variation helpers ───────────────────────────────────────────────
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+const ANGLES = {
+  small_contractor: [
+    "a roofing contractor who won a $52K job because he sent the quote the same day the client called",
+    "a plumber who lost 3 bids in a row because his competitor priced faster",
+    "an electrician who realised he'd been leaving 15–20% margin on the table for 2 years",
+    "a small GC who used to spend Sunday nights on spreadsheets and now prices on his phone from the job site",
+    "a painter who quoted $8K when the real job was worth $14K — and only found out after",
+    "a contractor who nearly went broke underbidding, then fixed his pricing process in one week",
+  ],
+  large_firm: [
+    "an estimating team that takes 4 days per bid and keeps missing the deadline window",
+    "a construction director who found out the estimating backlog was costing them 3 bids a month",
+    "a CFO who couldn't figure out why margin targets kept slipping on large commercial projects",
+    "a head of estimating who had zero audit trail when a client disputed a price",
+    "a firm that doubled bid volume without hiring a single new estimator",
+    "a PM who spent more time on pricing than on actually managing projects",
+  ],
+};
+
+const OPENERS = [
+  "No preamble. Drop the reader into the middle of the story.",
+  "Start with a number or a dollar amount.",
+  "Start with a question that hurts a little.",
+  "Start with the mistake — then explain it.",
+  "Start with the result, then work backwards.",
+  "Start with one sentence of pure tension.",
+];
+
 export async function POST(req: NextRequest) {
   try {
     const { format, segment, topic, tone } = await req.json();
@@ -139,27 +173,61 @@ export async function POST(req: NextRequest) {
     }
 
     const icp = ICP[segment as keyof typeof ICP];
-    const formatPrompt = FORMAT_PROMPTS[format] || FORMAT_PROMPTS.linkedin_post;
+    const angle = topic || pick(ANGLES[segment as keyof typeof ANGLES]);
+    const opener = pick(OPENERS);
 
-    const systemPrompt = `You are PRICEIT's content writer. PRICEIT is an AI-powered construction pricing platform in beta.
+    const systemPrompt = `You write marketing content for PRICEIT — an AI construction pricing platform in private beta.
 
-${VOICE}
+PRICEIT lets contractors and firms price any job in under 2 minutes. No spreadsheets. No guessing. Just accurate quotes, fast.
 
-${STYLE_GUIDE}
+Your writing rules:
+- Sound like a person, not a brand
+- Short sentences. Active voice. No fluff.
+- Use real numbers when possible ($45K, 3 days, 60%)
+- Never use: "leverage", "game-changer", "revolutionary", "in today's world", "it's no secret"
+- PRICEIT is always all caps
+- Output only the content — no intro, no "here's your post", no commentary`;
 
-Your output must strictly follow the brand voice and style guide above. Never break character. Never use forbidden words.`;
+    const formatInstructions: Record<string, string> = {
+      linkedin_post: `Write a LinkedIn post. ${opener}
+Story angle: ${angle}
+Structure: hook (1-2 lines) → conflict/problem → turning point → what changed → 1-line CTA to join PRICEIT beta.
+Length: 150-250 words. No hashtags. Line breaks between paragraphs.`,
 
-    const userPrompt = `${formatPrompt}
+      cold_email: `Write a cold outreach email.
+Story angle: ${angle}
+Format: Subject line (under 50 chars, no clickbait) → blank line → 3-4 sentences max → one CTA.
+No "I hope this finds you well". No fluff. Get to the point in sentence 1.
+Sign off: [First name], PRICEIT`,
 
-Target audience: ${icp.name}
-Audience description: ${icp.description}
-Their pain points: ${icp.pain_points.join(", ")}
-Audience hook: ${icp.hook}
-How to speak to them: ${icp.language}
-${topic ? `\nFocus topic / angle: ${topic}` : ""}
-${tone ? `\nTone emphasis: ${tone}` : ""}
+      email_sequence: `Write a 3-email cold outreach sequence.
+Story angle: ${angle}
+Email 1 (Day 0): Lead with the pain. Short. One ask.
+Email 2 (Day 3): One specific result or stat. Different angle from email 1.
+Email 3 (Day 7): Either add value (tip/insight) or a clean breakup line.
+Each email: Subject + body + sign-off. Keep each under 80 words.`,
 
-Generate the content now. Output only the final content — no meta-commentary, no "here's your post:", just the content itself.`;
+      blog_intro: `Write the opening of a blog post.
+Story angle: ${angle}
+Include: H1 headline (under 60 chars) → 2-sentence intro that opens with pain or a stat → first subhead → first body paragraph (100 words max).
+End with a soft CTA to the PRICEIT beta waitlist.`,
+
+      instagram: `Write an Instagram caption.
+Story angle: ${angle}
+${opener}
+Short punchy lines. Max 100 words. End with 2-3 hashtags from: #contractor #constructiontech #estimating #contractorbusiness`,
+
+      x_post: `Write a single tweet (under 280 chars).
+Story angle: ${angle}
+One idea. Punchy. ${opener} No corporate speak. 0-1 hashtag.`,
+    };
+
+    const userPrompt = `${formatInstructions[format] || formatInstructions.linkedin_post}
+
+Audience: ${icp.name} — ${icp.description}
+${tone ? `Tone: ${tone}` : ""}
+
+Write it now.`;
 
     // Stream response via Groq (free tier: llama-3.3-70b-versatile)
     const stream = await client.chat.completions.create({
