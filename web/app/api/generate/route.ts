@@ -212,10 +212,17 @@ Story angle: ${angle}
 Include: H1 headline (under 60 chars) → 2-sentence intro that opens with pain or a stat → first subhead → first body paragraph (100 words max).
 End with a soft CTA to the PRICEIT beta waitlist.`,
 
-      instagram: `Write an Instagram caption.
+      instagram: `Write an Instagram caption using this exact structure:
+1. Tell a micro-story in 4-6 short lines (one sentence per line). Name a person, a situation, a number. Make it feel real.
+2. One blank line.
+3. The lesson or turning point — 1-2 lines max.
+4. One blank line.
+5. Soft mention of PRICEIT — don't sell hard, just plant the seed.
+6. One blank line.
+7. 2-3 hashtags: #contractor #constructiontech #estimating
+
 Story angle: ${angle}
-${opener}
-Short punchy lines. Max 100 words. End with 2-3 hashtags from: #contractor #constructiontech #estimating #contractorbusiness`,
+Max 120 words total. No emojis. No exclamation marks.`,
 
       x_post: `Write a single tweet (under 280 chars).
 Story angle: ${angle}
