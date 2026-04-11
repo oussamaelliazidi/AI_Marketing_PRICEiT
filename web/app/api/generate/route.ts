@@ -1,11 +1,12 @@
 import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
+import { scoreContent, QUALITY_THRESHOLD } from "@/lib/contentScorer";
 
 const client = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-// ── Brand Context (inlined so no FS reads at runtime) ──────────────────────
+// ── Brand Context ──────────────────────────────────────────────────────────
 
 const VOICE = `
 # PRICEIT Brand Voice
@@ -100,33 +101,6 @@ const ICP = {
   },
 };
 
-const FORMAT_PROMPTS: Record<string, string> = {
-  linkedin_post: `Write a LinkedIn post for PRICEIT.
-Format: Hook (1–2 lines, no emoji), then 3–5 short paragraphs separated by blank lines, then 1-line CTA.
-Total: 150–300 words. No hashtags.`,
-
-  cold_email: `Write a cold outreach email for PRICEIT.
-Format:
-Subject: [under 50 chars]
----
-[3–5 sentence body, no "I hope this finds you well"]
-[Single clear CTA]
-[Signature: First name, PRICEIT]`,
-
-  blog_intro: `Write the opening section of a blog post for PRICEIT.
-Include: H1 headline (under 60 chars, sentence case) + intro paragraph (2 sentences, lead with pain or stat) + first subhead + first body paragraph (100–150 words).`,
-
-  instagram: `Write an Instagram post for PRICEIT.
-Format: Strong hook first line, 3–5 short lines of body, blank line, 2–3 hashtags from: #contractor #constructiontech #estimating #constructionbusiness #contractortips`,
-
-  x_post: `Write an X (Twitter) post for PRICEIT.
-Max 280 characters. Hook first. One idea only. 0–1 hashtag.`,
-
-  email_sequence: `Write a 3-email outreach sequence for PRICEIT (Day 0, Day 3, Day 7).
-Each email: Subject line + 3–5 sentence body + single CTA.
-Day 0: Pain-led cold email. Day 3: Social proof follow-up. Day 7: Value-add or break-up.`,
-};
-
 // ── Random variation helpers ───────────────────────────────────────────────
 
 function pick<T>(arr: T[]): T {
@@ -161,22 +135,14 @@ const OPENERS = [
   "Start with one sentence of pure tension.",
 ];
 
-export async function POST(req: NextRequest) {
-  try {
-    const { format, segment, topic, tone } = await req.json();
+// ── Build prompts ──────────────────────────────────────────────────────────
 
-    if (!format || !segment) {
-      return new Response(
-        JSON.stringify({ error: "format and segment are required" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
+function buildMessages(format: string, segment: string, topic: string | undefined, tone: string | undefined) {
+  const icp = ICP[segment as keyof typeof ICP];
+  const angle = topic || pick(ANGLES[segment as keyof typeof ANGLES]);
+  const opener = pick(OPENERS);
 
-    const icp = ICP[segment as keyof typeof ICP];
-    const angle = topic || pick(ANGLES[segment as keyof typeof ANGLES]);
-    const opener = pick(OPENERS);
-
-    const systemPrompt = `You write marketing content for PRICEIT — an AI construction pricing platform in private beta.
+  const systemPrompt = `You write marketing content for PRICEIT — an AI construction pricing platform in private beta.
 
 PRICEIT lets contractors and firms price any job in under 2 minutes. No spreadsheets. No guessing. Just accurate quotes, fast.
 
@@ -190,31 +156,31 @@ Your writing rules:
 - PRICEIT is always all caps
 - Output only the content — no intro, no "here's your post", no commentary`;
 
-    const formatInstructions: Record<string, string> = {
-      linkedin_post: `Write a LinkedIn post. ${opener}
+  const formatInstructions: Record<string, string> = {
+    linkedin_post: `Write a LinkedIn post. ${opener}
 Story angle: ${angle}
 Structure: hook (1-2 lines) → conflict/problem → turning point → what changed → 1-line CTA to join PRICEIT beta.
 Length: 150-250 words. No hashtags. Line breaks between paragraphs.`,
 
-      cold_email: `Write a cold outreach email.
+    cold_email: `Write a cold outreach email.
 Story angle: ${angle}
 Format: Subject line (under 50 chars, no clickbait) → blank line → 3-4 sentences max → one CTA.
 No "I hope this finds you well". No fluff. Get to the point in sentence 1.
 Sign off: [First name], PRICEIT`,
 
-      email_sequence: `Write a 3-email cold outreach sequence.
+    email_sequence: `Write a 3-email cold outreach sequence.
 Story angle: ${angle}
 Email 1 (Day 0): Lead with the pain. Short. One ask.
 Email 2 (Day 3): One specific result or stat. Different angle from email 1.
 Email 3 (Day 7): Either add value (tip/insight) or a clean breakup line.
 Each email: Subject + body + sign-off. Keep each under 80 words.`,
 
-      blog_intro: `Write the opening of a blog post.
+    blog_intro: `Write the opening of a blog post.
 Story angle: ${angle}
 Include: H1 headline (under 60 chars) → 2-sentence intro that opens with pain or a stat → first subhead → first body paragraph (100 words max).
 End with a soft CTA to the PRICEIT beta waitlist.`,
 
-      instagram: `Write an Instagram caption using this exact structure:
+    instagram: `Write an Instagram caption using this exact structure:
 1. Tell a micro-story in 4-6 short lines (one sentence per line). Name a person, a situation, a number. Make it feel real.
 2. One blank line.
 3. The lesson or turning point — 1-2 lines max.
@@ -226,44 +192,92 @@ End with a soft CTA to the PRICEIT beta waitlist.`,
 Story angle: ${angle}
 Max 120 words total. No emojis. No exclamation marks.`,
 
-      x_post: `Write a single tweet (under 280 chars).
+    x_post: `Write a single tweet (under 280 chars).
 Story angle: ${angle}
 One idea. Punchy. ${opener} No corporate speak. 0-1 hashtag.`,
-    };
 
-    const userPrompt = `${formatInstructions[format] || formatInstructions.linkedin_post}
+    facebook_post: `Write a Facebook post for a construction audience.
+Story angle: ${angle}
+${opener}
+Structure: hook (1-2 lines) → relatable story → what changed → soft CTA.
+Length: 100-200 words. Conversational tone. 1-2 hashtags max.`,
+
+    whatsapp_message: `Write a WhatsApp message for a contractor referral/outreach.
+Story angle: ${angle}
+Keep it under 100 words. Sound like a text from a colleague, not a sales pitch.
+No subject line needed. Start with the name or a quick context-setter.`,
+
+    snapchat: `Write a Snapchat caption (under 50 chars) paired with a 2-line context blurb.
+Story angle: ${angle}
+Caption: punchy, visual, under 50 chars.
+Context: 1-2 short lines that explain the image/situation. No hashtags.`,
+  };
+
+  const userPrompt = `${formatInstructions[format] || formatInstructions.linkedin_post}
 
 Audience: ${icp.name} — ${icp.description}
 ${tone ? `Tone: ${tone}` : ""}
 
 Write it now.`;
 
-    // Stream response via Groq (free tier: llama-3.3-70b-versatile)
-    const stream = await client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 1024,
-      stream: true,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-    });
+  return [
+    { role: "system" as const, content: systemPrompt },
+    { role: "user" as const, content: userPrompt },
+  ];
+}
 
+// ── Route handler ──────────────────────────────────────────────────────────
+
+export async function POST(req: NextRequest) {
+  try {
+    const { format, segment, topic, tone } = await req.json();
+
+    if (!format || !segment) {
+      return new Response(
+        JSON.stringify({ error: "format and segment are required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const MAX_ATTEMPTS = 3;
+    let bestContent = "";
+    let bestScore = 0;
+    let finalScore = 0;
+
+    // ── Internal quality loop (non-streaming) ──────────────────────────────
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const messages = buildMessages(format, segment, topic, tone);
+
+      const completion = await client.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 1024,
+        stream: false,
+        messages,
+      });
+
+      const content = completion.choices[0]?.message?.content ?? "";
+      const result = scoreContent(content, format);
+
+      if (result.total > bestScore) {
+        bestScore = result.total;
+        bestContent = content;
+        finalScore = result.total;
+      }
+
+      // Good enough — stop early
+      if (result.passed) {
+        finalScore = result.total;
+        bestContent = content;
+        break;
+      }
+    }
+
+    // ── Stream the approved content back ───────────────────────────────────
     const encoder = new TextEncoder();
-
     const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of stream) {
-            const text = chunk.choices[0]?.delta?.content ?? "";
-            if (text) {
-              controller.enqueue(encoder.encode(text));
-            }
-          }
-          controller.close();
-        } catch (err) {
-          controller.error(err);
-        }
+      start(controller) {
+        controller.enqueue(encoder.encode(bestContent));
+        controller.close();
       },
     });
 
@@ -272,6 +286,7 @@ Write it now.`;
         "Content-Type": "text/plain; charset=utf-8",
         "Transfer-Encoding": "chunked",
         "X-Content-Type-Options": "nosniff",
+        "X-Quality-Score": String(finalScore),
       },
     });
   } catch (err: unknown) {

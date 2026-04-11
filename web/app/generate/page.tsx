@@ -73,6 +73,7 @@ export default function GeneratePage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [qualityScore, setQualityScore] = useState<number | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
   const selectedFormat = FORMATS.find((f) => f.id === format)!;
@@ -83,6 +84,7 @@ export default function GeneratePage() {
     setOutput("");
     setError("");
     setCopied(false);
+    setQualityScore(null);
 
     try {
       const res = await fetch("/api/generate", {
@@ -96,6 +98,10 @@ export default function GeneratePage() {
         throw new Error(err.error || "Generation failed");
       }
 
+      // Read quality score from header
+      const scoreHeader = res.headers.get("X-Quality-Score");
+      if (scoreHeader) setQualityScore(parseInt(scoreHeader, 10));
+
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let accumulated = "";
@@ -105,7 +111,6 @@ export default function GeneratePage() {
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
         setOutput(accumulated);
-        // Scroll to bottom as text streams in
         if (outputRef.current) {
           outputRef.current.scrollTop = outputRef.current.scrollHeight;
         }
@@ -316,9 +321,24 @@ export default function GeneratePage() {
           {/* ── Right: Output ── */}
           <div className="flex flex-col">
             <div className="flex items-center justify-between mb-3">
-              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
-                Output
-              </label>
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
+                  Output
+                </label>
+                {qualityScore !== null && (
+                  <span
+                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      qualityScore >= 70
+                        ? "bg-green-400/15 text-green-400 border border-green-400/30"
+                        : qualityScore >= 55
+                        ? "bg-yellow-400/15 text-yellow-400 border border-yellow-400/30"
+                        : "bg-red-400/15 text-red-400 border border-red-400/30"
+                    }`}
+                  >
+                    Quality {qualityScore}/100
+                  </span>
+                )}
+              </div>
               {output && (
                 <button
                   onClick={copyToClipboard}
