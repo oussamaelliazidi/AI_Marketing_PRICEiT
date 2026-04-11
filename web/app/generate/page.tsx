@@ -12,7 +12,10 @@ type Format =
   | "blog_intro"
   | "instagram"
   | "x_post"
-  | "email_sequence";
+  | "email_sequence"
+  | "facebook_post"
+  | "whatsapp_message"
+  | "snapchat";
 
 interface FormatOption {
   id: Format;
