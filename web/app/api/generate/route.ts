@@ -181,10 +181,12 @@ export async function POST(req: NextRequest) {
 PRICEIT lets contractors and firms price any job in under 2 minutes. No spreadsheets. No guessing. Just accurate quotes, fast.
 
 Your writing rules:
-- Sound like a person, not a brand
+- Sound like a real person wrote this, not a marketing team
 - Short sentences. Active voice. No fluff.
-- Use real numbers when possible ($45K, 3 days, 60%)
-- Never use: "leverage", "game-changer", "revolutionary", "in today's world", "it's no secret"
+- Use real numbers ($45K, 3 days, 60%) — make them feel specific, not round
+- When you use a person's name, use common contractor names: Mike, Dave, Carlos, Tony, Ray, Luis, Joe, Marco, Pete — never tech or corporate names
+- Never end with a product claim or tagline. End with a human outcome, then mention PRICEIT quietly on its own line as the last thing
+- Never use: "leverage", "game-changer", "revolutionary", "in today's world", "it's no secret", "pricing solution"
 - PRICEIT is always all caps
 - Output only the content — no intro, no "here's your post", no commentary`;
 
