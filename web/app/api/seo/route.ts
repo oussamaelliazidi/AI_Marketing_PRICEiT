@@ -1,0 +1,188 @@
+import Groq from "groq-sdk";
+import { NextRequest } from "next/server";
+import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
+
+const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+// ── SEO Score ─────────────────────────────────────────────────────────────
+
+export interface SeoScoreResult {
+  total: number;
+  checks: {
+    keywordInH1: boolean;
+    keywordInMetaTitle: boolean;
+    metaDescriptionPresent: boolean;
+    wordCount: number;
+    wordCountOk: boolean;
+    faqPresent: boolean;
+    ctaPresent: boolean;
+  };
+}
+
+export function scoreSeo(content: string, keyword: string): SeoScoreResult {
+  const lower = content.toLowerCase();
+  const kw = keyword.toLowerCase();
+
+  const keywordInH1 = (() => {
+    const h1Match = content.match(/^#\s+(.+)$/m);
+    return h1Match ? h1Match[1].toLowerCase().includes(kw) : false;
+  })();
+
+  const keywordInMetaTitle = (() => {
+    const match = content.match(/META TITLE:\s*(.+)/i);
+    return match ? match[1].toLowerCase().includes(kw) : false;
+  })();
+
+  const metaDescriptionPresent = /META DESCRIPTION:\s*.{20,}/i.test(content);
+  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const wordCountOk = wordCount >= 600;
+  const faqPresent = /frequently asked questions|^## FAQ/im.test(content);
+  const ctaPresent = /waitlist|beta|priceit\.io|sign up|get access/i.test(content);
+
+  let total = 0;
+  if (keywordInH1)            total += 25;
+  if (keywordInMetaTitle)     total += 20;
+  if (metaDescriptionPresent) total += 15;
+  if (wordCountOk)            total += 20;
+  if (faqPresent)             total += 12;
+  if (ctaPresent)             total += 8;
+
+  return {
+    total,
+    checks: {
+      keywordInH1,
+      keywordInMetaTitle,
+      metaDescriptionPresent,
+      wordCount,
+      wordCountOk,
+      faqPresent,
+      ctaPresent,
+    },
+  };
+}
+
+// ── Route ─────────────────────────────────────────────────────────────────
+
+export async function POST(req: NextRequest) {
+  try {
+    const { keyword, segment, voice } = await req.json();
+
+    if (!keyword) {
+      return new Response(
+        JSON.stringify({ error: "keyword is required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const segmentLabel = segment === "large_firm"
+      ? "construction firms with estimating teams (50+ employees)"
+      : "small contractors and owner-operators (1–20 people)";
+
+    const voiceKey = (voice as VoiceType) || "street";
+
+    const systemPrompt = `You write SEO-optimised blog posts for PRICEIT — an AI construction pricing platform in private beta.
+
+PRICEIT lets contractors price any job in under 2 minutes. No spreadsheets. No guessing.
+
+${VOICE_PROMPTS[voiceKey]}
+
+SEO rules:
+- Include the target keyword naturally in the H1, first paragraph, and 2–3 H2 subheads
+- Answer the search query directly in the first 2 sentences — don't make Google hunt for the answer
+- Write for humans first, Google second — no keyword stuffing
+- PRICEIT always in all caps
+- Output only the blog post — no intro, no commentary`;
+
+    const userPrompt = `Write a complete SEO blog post targeting the keyword: "${keyword}"
+
+Audience: ${segmentLabel}
+
+Use this exact structure — keep the labels so they can be parsed:
+
+META TITLE: [under 60 chars, includes keyword]
+META DESCRIPTION: [under 160 chars, includes keyword, ends with a soft CTA]
+
+# [H1 — includes keyword, under 60 chars, sentence case]
+
+[Introduction — 2–3 sentences. Answer the search query immediately. Mention PRICEIT naturally.]
+
+## [H2 — first main point, includes keyword variation]
+
+[2–3 paragraphs. Specific numbers and examples. Short sentences.]
+
+## [H2 — second main point]
+
+[2–3 paragraphs. Real contractor scenario. Dollar amounts or time saved.]
+
+## [H2 — third main point]
+
+[2–3 paragraphs. Practical advice. How PRICEIT fits in — don't oversell.]
+
+## Frequently Asked Questions
+
+**[Question 1 — phrased how someone would Google it, includes keyword]**
+[Answer — 2–3 sentences, direct, specific]
+
+**[Question 2 — related question]**
+[Answer — 2–3 sentences]
+
+**[Question 3 — objection or comparison question]**
+[Answer — 2–3 sentences]
+
+## Ready to price every job in 2 minutes?
+
+[2–3 sentence CTA paragraph. Mention PRICEIT beta waitlist. No hard sell.]
+
+Write the full post now. Minimum 600 words.`;
+
+    const MAX_ATTEMPTS = 2;
+    let bestContent = "";
+    let bestSeoScore = 0;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const completion = await client.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 2048,
+        stream: false,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      });
+
+      const content = completion.choices[0]?.message?.content ?? "";
+      const seoResult = scoreSeo(content, keyword);
+
+      if (seoResult.total > bestSeoScore) {
+        bestSeoScore = seoResult.total;
+        bestContent = content;
+      }
+
+      if (seoResult.total >= 75) break;
+    }
+
+    const finalSeoScore = scoreSeo(bestContent, keyword);
+
+    const readable = new ReadableStream({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode(bestContent));
+        controller.close();
+      },
+    });
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-SEO-Score": String(finalSeoScore.total),
+        "X-SEO-Checks": JSON.stringify(finalSeoScore.checks),
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[/api/seo]", message);
+    return new Response(
+      JSON.stringify({ error: message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+}
