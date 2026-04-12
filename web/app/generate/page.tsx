@@ -33,12 +33,25 @@ interface SegmentOption {
 // ── Config ─────────────────────────────────────────────────────────────────
 
 const FORMATS: FormatOption[] = [
-  { id: "linkedin_post", label: "LinkedIn Post", icon: "💼", description: "150–300 words, hook → body → CTA" },
-  { id: "cold_email", label: "Cold Email", icon: "📧", description: "Subject + 3–5 sentences + single ask" },
-  { id: "email_sequence", label: "3-Email Sequence", icon: "📬", description: "Day 0, 3, 7 outreach campaign" },
-  { id: "blog_intro", label: "Blog Intro", icon: "📝", description: "H1 + intro + first subhead + body" },
-  { id: "instagram", label: "Instagram", icon: "📸", description: "Hook + body + hashtags" },
-  { id: "x_post", label: "X / Twitter", icon: "𝕏", description: "Under 280 chars, one idea" },
+  { id: "linkedin_post",    label: "LinkedIn Post",    icon: "💼", description: "150–300 words, hook → body → CTA" },
+  { id: "cold_email",       label: "Cold Email",       icon: "📧", description: "Subject + 3–5 sentences + single ask" },
+  { id: "email_sequence",   label: "3-Email Sequence", icon: "📬", description: "Day 0, 3, 7 outreach campaign" },
+  { id: "blog_intro",       label: "Blog Intro",       icon: "📝", description: "H1 + intro + first subhead + body" },
+  { id: "instagram",        label: "Instagram",        icon: "📸", description: "Hook + body + hashtags" },
+  { id: "x_post",           label: "X / Twitter",      icon: "𝕏", description: "Under 280 chars, one idea" },
+];
+
+// All repurpose targets (includes social formats not in main picker)
+const REPURPOSE_TARGETS: { id: Format; label: string; icon: string }[] = [
+  { id: "linkedin_post",    label: "LinkedIn",  icon: "💼" },
+  { id: "x_post",           label: "X Post",    icon: "𝕏" },
+  { id: "instagram",        label: "Instagram", icon: "📸" },
+  { id: "facebook_post",    label: "Facebook",  icon: "📘" },
+  { id: "cold_email",       label: "Cold Email",icon: "📧" },
+  { id: "email_sequence",   label: "3 Emails",  icon: "📬" },
+  { id: "whatsapp_message", label: "WhatsApp",  icon: "💬" },
+  { id: "blog_intro",       label: "Blog",      icon: "📝" },
+  { id: "snapchat",         label: "Snapchat",  icon: "👻" },
 ];
 
 const SEGMENTS: SegmentOption[] = [
@@ -74,6 +87,8 @@ export default function GeneratePage() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const [qualityScore, setQualityScore] = useState<number | null>(null);
+  const [isRepurposing, setIsRepurposing] = useState(false);
+  const [repurposingTo, setRepurposingTo] = useState<Format | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
   const selectedFormat = FORMATS.find((f) => f.id === format)!;
@@ -131,6 +146,58 @@ export default function GeneratePage() {
 
   function useSuggestion(s: string) {
     setTopic(s);
+  }
+
+  async function repurpose(targetFormat: Format) {
+    if (!output || isGenerating || isRepurposing) return;
+    setIsRepurposing(true);
+    setRepurposingTo(targetFormat);
+    setError("");
+    setCopied(false);
+    setQualityScore(null);
+
+    try {
+      const res = await fetch("/api/repurpose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: output,
+          sourceFormat: format,
+          targetFormat,
+          segment,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Repurpose failed");
+      }
+
+      const scoreHeader = res.headers.get("X-Quality-Score");
+      if (scoreHeader) setQualityScore(parseInt(scoreHeader, 10));
+
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        accumulated += decoder.decode(value, { stream: true });
+        setOutput(accumulated);
+        if (outputRef.current) {
+          outputRef.current.scrollTop = outputRef.current.scrollHeight;
+        }
+      }
+
+      // Switch active format to the repurposed one
+      setFormat(targetFormat);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Repurpose failed");
+    } finally {
+      setIsRepurposing(false);
+      setRepurposingTo(null);
+    }
   }
 
   return (
@@ -416,11 +483,40 @@ export default function GeneratePage() {
               </div>
             )}
 
-            {/* Regenerate hint */}
+            {/* Repurpose row */}
+            {output && !isGenerating && (
+              <div className="mt-4">
+                <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">
+                  Repurpose to →
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {REPURPOSE_TARGETS.filter((t) => t.id !== format).map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => repurpose(t.id)}
+                      disabled={isRepurposing}
+                      className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                        repurposingTo === t.id
+                          ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                          : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500 hover:text-white"
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      <span>{t.icon}</span>
+                      <span>
+                        {repurposingTo === t.id ? "Converting…" : t.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Regenerate */}
             {output && !isGenerating && (
               <button
                 onClick={generate}
-                className="mt-3 w-full py-2.5 border border-zinc-700 hover:border-zinc-500 rounded-lg text-zinc-400 hover:text-white text-sm transition-all"
+                disabled={isRepurposing}
+                className="mt-3 w-full py-2.5 border border-zinc-700 hover:border-zinc-500 rounded-lg text-zinc-400 hover:text-white text-sm transition-all disabled:opacity-50"
               >
                 Regenerate ↻
               </button>
