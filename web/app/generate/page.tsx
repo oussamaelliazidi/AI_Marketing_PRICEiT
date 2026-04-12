@@ -33,12 +33,15 @@ interface SegmentOption {
 // ── Config ─────────────────────────────────────────────────────────────────
 
 const FORMATS: FormatOption[] = [
-  { id: "linkedin_post",    label: "LinkedIn Post",    icon: "💼", description: "150–300 words, hook → body → CTA" },
-  { id: "cold_email",       label: "Cold Email",       icon: "📧", description: "Subject + 3–5 sentences + single ask" },
-  { id: "email_sequence",   label: "3-Email Sequence", icon: "📬", description: "Day 0, 3, 7 outreach campaign" },
-  { id: "blog_intro",       label: "Blog Intro",       icon: "📝", description: "H1 + intro + first subhead + body" },
-  { id: "instagram",        label: "Instagram",        icon: "📸", description: "Hook + body + hashtags" },
-  { id: "x_post",           label: "X / Twitter",      icon: "𝕏", description: "Under 280 chars, one idea" },
+  { id: "linkedin_post",    label: "LinkedIn",      icon: "💼", description: "150–300 words, hook → body → CTA" },
+  { id: "cold_email",       label: "Cold Email",    icon: "📧", description: "Subject + 3–5 sentences + single ask" },
+  { id: "email_sequence",   label: "3 Emails",      icon: "📬", description: "Day 0, 3, 7 outreach campaign" },
+  { id: "blog_intro",       label: "Blog Intro",    icon: "📝", description: "H1 + intro + first subhead + body" },
+  { id: "instagram",        label: "Instagram",     icon: "📸", description: "Hook + story + hashtags" },
+  { id: "x_post",           label: "X / Twitter",   icon: "𝕏", description: "Under 280 chars, one idea" },
+  { id: "facebook_post",    label: "Facebook",      icon: "📘", description: "100–200 words, conversational" },
+  { id: "whatsapp_message", label: "WhatsApp",      icon: "💬", description: "Under 100 words, text-like tone" },
+  { id: "snapchat",         label: "Snapchat",      icon: "👻", description: "Caption + 2-line context blurb" },
 ];
 
 // All repurpose targets (includes social formats not in main picker)
@@ -260,7 +263,7 @@ export default function GeneratePage() {
               <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">
                 Content Format
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {FORMATS.map((f) => (
                   <button
                     key={f.id}
@@ -271,11 +274,11 @@ export default function GeneratePage() {
                         : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500"
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-base">{f.icon}</span>
-                      <span className="font-semibold text-sm">{f.label}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm">{f.icon}</span>
+                      <span className="font-semibold text-xs">{f.label}</span>
                     </div>
-                    <div className="text-xs mt-1 opacity-60">{f.description}</div>
+                    <div className="text-xs mt-1 opacity-60 leading-tight">{f.description}</div>
                   </button>
                 ))}
               </div>
@@ -381,6 +384,30 @@ export default function GeneratePage() {
                     <div>• Max 280 characters</div>
                     <div>• One idea only</div>
                     <div>• 0–1 hashtag</div>
+                  </>
+                )}
+                {format === "facebook_post" && (
+                  <>
+                    <div>• Hook in first 1–2 lines</div>
+                    <div>• Relatable story, conversational tone</div>
+                    <div>• 100–200 words</div>
+                    <div>• 1–2 hashtags max</div>
+                  </>
+                )}
+                {format === "whatsapp_message" && (
+                  <>
+                    <div>• Sounds like a text from a colleague</div>
+                    <div>• Under 100 words</div>
+                    <div>• No subject line, no sales pitch</div>
+                    <div>• One clear ask at the end</div>
+                  </>
+                )}
+                {format === "snapchat" && (
+                  <>
+                    <div>• Caption: under 50 characters</div>
+                    <div>• Context: 1–2 short lines</div>
+                    <div>• Visual and punchy</div>
+                    <div>• No hashtags</div>
                   </>
                 )}
               </div>
