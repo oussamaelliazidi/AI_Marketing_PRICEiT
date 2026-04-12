@@ -1,6 +1,7 @@
 import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { scoreContent } from "@/lib/contentScorer";
+import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -57,7 +58,7 @@ const FORMAT_LABELS: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { content, sourceFormat, targetFormat, segment } = await req.json();
+    const { content, sourceFormat, targetFormat, segment, voice } = await req.json();
 
     if (!content || !targetFormat) {
       return new Response(
@@ -77,17 +78,14 @@ export async function POST(req: NextRequest) {
     const sourceLabel = FORMAT_LABELS[sourceFormat] ?? sourceFormat;
     const targetLabel = FORMAT_LABELS[targetFormat] ?? targetFormat;
 
+    const voiceKey = (voice as VoiceType) || "street";
     const systemPrompt = `You repurpose marketing content for PRICEIT — an AI construction pricing platform.
 
 PRICEIT lets contractors price any job in under 2 minutes.
 
-Rules:
-- Keep the same story, characters, and numbers from the source — don't invent new facts
-- Reshape the structure and length to fit the target platform
-- Contractor names: Mike, Dave, Carlos, Tony, Ray, Luis, Joe, Marco, Pete
-- PRICEIT always in all caps
-- No "leverage", "game-changer", "revolutionary", "in today's world"
-- Output only the content — no intro, no commentary`;
+${VOICE_PROMPTS[voiceKey]}
+
+Additional repurpose rule: Keep the same story, characters, and numbers from the source — don't invent new facts. Reshape structure and length to fit the target platform.`;
 
     const userPrompt = `Here is a ${sourceLabel} for a ${segment === "large_firm" ? "large construction firm" : "small contractor"} audience:
 
