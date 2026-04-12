@@ -288,7 +288,7 @@ export default function SeoPage() {
                     { label: "Keyword in H1",        ok: seoChecks.keywordInH1 },
                     { label: "Keyword in meta title", ok: seoChecks.keywordInMetaTitle },
                     { label: "Meta description",      ok: seoChecks.metaDescriptionPresent },
-                    { label: `${seoChecks.wordCount} words (600+ target)`, ok: seoChecks.wordCountOk },
+                    { label: `${seoChecks.wordCount} words (500–750 target)`, ok: seoChecks.wordCountOk },
                     { label: "FAQ section",           ok: seoChecks.faqPresent },
                     { label: "CTA / beta mention",    ok: seoChecks.ctaPresent },
                   ].map((check) => (

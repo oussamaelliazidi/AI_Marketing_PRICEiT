@@ -44,7 +44,7 @@ export function scoreSeo(content: string, keyword: string): SeoScoreResult {
 
   const metaDescriptionPresent = /META DESCRIPTION:\s*.{20,}/i.test(content);
   const wordCount               = content.split(/\s+/).filter(Boolean).length;
-  const wordCountOk = wordCount >= 600;
+  const wordCountOk = wordCount >= 500 && wordCount <= 750;
   const faqPresent = /frequently asked questions|^## FAQ/im.test(content);
   const ctaPresent = /waitlist|beta|priceit\.io|sign up|get access/i.test(content);
 
@@ -142,7 +142,7 @@ META DESCRIPTION: [under 160 chars, includes keyword, ends with a soft CTA]
 
 [2–3 sentence CTA paragraph. Mention PRICEIT beta waitlist. No hard sell.]
 
-Write the full post now. Minimum 600 words.`;
+Write the full post now. Target 600–700 words total — no more. People have short attention spans. Every sentence must earn its place. Cut anything that doesn't directly help the reader.`;
 
     const MAX_ATTEMPTS = 2;
     let bestContent = "";
