@@ -18,6 +18,14 @@ type Format =
   | "whatsapp_message"
   | "snapchat";
 
+interface Tab {
+  format: Format;
+  label: string;
+  icon: string;
+  content: string;
+  score: number | null;
+}
+
 interface FormatOption {
   id: Format;
   label: string;
@@ -45,22 +53,33 @@ const FORMATS: FormatOption[] = [
   { id: "snapchat",         label: "Snapchat",      icon: "👻", description: "Caption + 2-line context blurb" },
 ];
 
-// All repurpose targets (includes social formats not in main picker)
-const REPURPOSE_TARGETS: { id: Format; label: string; icon: string }[] = [
-  { id: "linkedin_post",    label: "LinkedIn",  icon: "💼" },
-  { id: "x_post",           label: "X Post",    icon: "𝕏" },
-  { id: "instagram",        label: "Instagram", icon: "📸" },
-  { id: "facebook_post",    label: "Facebook",  icon: "📘" },
-  { id: "cold_email",       label: "Cold Email",icon: "📧" },
-  { id: "email_sequence",   label: "3 Emails",  icon: "📬" },
-  { id: "whatsapp_message", label: "WhatsApp",  icon: "💬" },
-  { id: "blog_intro",       label: "Blog",      icon: "📝" },
-  { id: "snapchat",         label: "Snapchat",  icon: "👻" },
+const ALL_FORMAT_META: Record<Format, { label: string; icon: string }> = {
+  linkedin_post:    { label: "LinkedIn",   icon: "💼" },
+  cold_email:       { label: "Cold Email", icon: "📧" },
+  email_sequence:   { label: "3 Emails",   icon: "📬" },
+  blog_intro:       { label: "Blog",       icon: "📝" },
+  instagram:        { label: "Instagram",  icon: "📸" },
+  x_post:           { label: "X Post",     icon: "𝕏" },
+  facebook_post:    { label: "Facebook",   icon: "📘" },
+  whatsapp_message: { label: "WhatsApp",   icon: "💬" },
+  snapchat:         { label: "Snapchat",   icon: "👻" },
+};
+
+const REPURPOSE_ORDER: Format[] = [
+  "linkedin_post", "x_post", "instagram", "facebook_post",
+  "cold_email", "email_sequence", "whatsapp_message", "blog_intro", "snapchat",
 ];
+
+// Character limits for tight formats (Feature 2)
+const CHAR_LIMITS: Partial<Record<Format, { max: number; warn: number }>> = {
+  x_post:           { max: 280, warn: 240 },
+  snapchat:         { max: 150, warn: 100 },
+  whatsapp_message: { max: 500, warn: 400 },
+};
 
 const SEGMENTS: SegmentOption[] = [
   { id: "small_contractor", label: "Small Contractor", sub: "1–20 people, owner-operators" },
-  { id: "large_firm", label: "Large Firm", sub: "50+ employees, estimating teams" },
+  { id: "large_firm",       label: "Large Firm",       sub: "50+ employees, estimating teams" },
 ];
 
 const TOPIC_SUGGESTIONS: Record<Segment, string[]> = {
@@ -83,28 +102,72 @@ const TOPIC_SUGGESTIONS: Record<Segment, string[]> = {
 // ── Component ──────────────────────────────────────────────────────────────
 
 export default function GeneratePage() {
-  const [segment, setSegment] = useState<Segment>("small_contractor");
-  const [format, setFormat] = useState<Format>("linkedin_post");
-  const [voice, setVoice] = useState<VoiceType>("street");
-  const [topic, setTopic] = useState("");
-  const [output, setOutput] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState("");
+  // Controls
+  const [segment, setSegment]             = useState<Segment>("small_contractor");
+  const [format, setFormat]               = useState<Format>("linkedin_post");
+  const [voice, setVoice]                 = useState<VoiceType>("street");
+  const [repurposeVoice, setRepurposeVoice] = useState<VoiceType>("street"); // Feature 4
+  const [topic, setTopic]                 = useState("");
+
+  // Output tabs (Feature 1)
+  const [tabs, setTabs]                   = useState<Tab[]>([]);
+  const [activeTabFormat, setActiveTabFormat] = useState<Format | null>(null);
+
+  // Loading states
+  const [isGenerating, setIsGenerating]   = useState(false);
+  const [loadingFormats, setLoadingFormats] = useState<Set<Format>>(new Set());
+  const [isBatchRunning, setIsBatchRunning] = useState(false);
+
+  // UI
+  const [error, setError]   = useState("");
   const [copied, setCopied] = useState(false);
-  const [qualityScore, setQualityScore] = useState<number | null>(null);
-  const [isRepurposing, setIsRepurposing] = useState(false);
-  const [repurposingTo, setRepurposingTo] = useState<Format | null>(null);
+
   const outputRef = useRef<HTMLDivElement>(null);
 
+  // ── Derived ──
+  const activeTab    = tabs.find((t) => t.format === activeTabFormat) ?? null;
+  const output       = activeTab?.content ?? "";
+  const qualityScore = activeTab?.score   ?? null;
   const selectedFormat = FORMATS.find((f) => f.id === format)!;
+  const charLimit    = activeTabFormat ? CHAR_LIMITS[activeTabFormat] : null;
+  const charCount    = output.length;
+  const charColor    = charLimit
+    ? charCount > charLimit.max  ? "text-red-400 font-semibold"
+    : charCount > charLimit.warn ? "text-yellow-400"
+    : "text-zinc-600"
+    : "text-zinc-600";
+
+  // ── Helpers ──
+
+  function upsertTab(fmt: Format, content: string, score: number | null) {
+    const meta = ALL_FORMAT_META[fmt];
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.format === fmt);
+      const tab: Tab = { format: fmt, label: meta.label, icon: meta.icon, content, score };
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = tab;
+        return next;
+      }
+      return [...prev, tab];
+    });
+    setActiveTabFormat(fmt);
+  }
+
+  function copyToClipboard() {
+    if (!output) return;
+    navigator.clipboard.writeText(output);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  // ── Generate ──
 
   async function generate() {
     if (isGenerating) return;
     setIsGenerating(true);
-    setOutput("");
     setError("");
     setCopied(false);
-    setQualityScore(null);
 
     try {
       const res = await fetch("/api/generate", {
@@ -118,23 +181,25 @@ export default function GeneratePage() {
         throw new Error(err.error || "Generation failed");
       }
 
-      // Read quality score from header
       const scoreHeader = res.headers.get("X-Quality-Score");
-      if (scoreHeader) setQualityScore(parseInt(scoreHeader, 10));
+      const score = scoreHeader ? parseInt(scoreHeader, 10) : null;
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let accumulated = "";
 
+      // Create tab immediately so it shows while streaming
+      upsertTab(format, "", null);
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
-        setOutput(accumulated);
-        if (outputRef.current) {
-          outputRef.current.scrollTop = outputRef.current.scrollHeight;
-        }
+        upsertTab(format, accumulated, null);
+        if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
       }
+
+      upsertTab(format, accumulated, score);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -142,24 +207,14 @@ export default function GeneratePage() {
     }
   }
 
-  function copyToClipboard() {
-    if (!output) return;
-    navigator.clipboard.writeText(output);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  function useSuggestion(s: string) {
-    setTopic(s);
-  }
+  // ── Repurpose single (Feature 4: uses repurposeVoice) ──
 
   async function repurpose(targetFormat: Format) {
-    if (!output || isGenerating || isRepurposing) return;
-    setIsRepurposing(true);
-    setRepurposingTo(targetFormat);
+    if (!output || isGenerating || loadingFormats.has(targetFormat)) return;
+
+    setLoadingFormats((prev) => new Set(prev).add(targetFormat));
     setError("");
     setCopied(false);
-    setQualityScore(null);
 
     try {
       const res = await fetch("/api/repurpose", {
@@ -167,10 +222,10 @@ export default function GeneratePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           content: output,
-          sourceFormat: format,
+          sourceFormat: activeTabFormat ?? format,
           targetFormat,
           segment,
-          voice,
+          voice: repurposeVoice,
         }),
       });
 
@@ -180,32 +235,43 @@ export default function GeneratePage() {
       }
 
       const scoreHeader = res.headers.get("X-Quality-Score");
-      if (scoreHeader) setQualityScore(parseInt(scoreHeader, 10));
+      const score = scoreHeader ? parseInt(scoreHeader, 10) : null;
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
       let accumulated = "";
 
+      upsertTab(targetFormat, "", null);
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         accumulated += decoder.decode(value, { stream: true });
-        setOutput(accumulated);
-        if (outputRef.current) {
-          outputRef.current.scrollTop = outputRef.current.scrollHeight;
-        }
+        upsertTab(targetFormat, accumulated, null);
+        if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
       }
 
-      // Only switch format picker if target exists in the main FORMATS list
-      if (FORMATS.some((f) => f.id === targetFormat)) {
-        setFormat(targetFormat);
-      }
+      upsertTab(targetFormat, accumulated, score);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Repurpose failed");
     } finally {
-      setIsRepurposing(false);
-      setRepurposingTo(null);
+      setLoadingFormats((prev) => {
+        const next = new Set(prev);
+        next.delete(targetFormat);
+        return next;
+      });
     }
+  }
+
+  // ── Batch repurpose all (Feature 3) ──
+
+  async function repurposeAll() {
+    if (!output || isGenerating || isBatchRunning) return;
+    setIsBatchRunning(true);
+    const currentFormat = activeTabFormat ?? format;
+    const targets = REPURPOSE_ORDER.filter((f) => f !== currentFormat);
+    await Promise.all(targets.map((t) => repurpose(t)));
+    setIsBatchRunning(false);
   }
 
   return (
@@ -216,10 +282,7 @@ export default function GeneratePage() {
           <span className="text-yellow-400 font-black text-xl tracking-tight">PRICEIT</span>
           <span className="text-zinc-500 text-sm">/ Content Engine</span>
         </Link>
-        <Link
-          href="/"
-          className="text-zinc-400 text-sm hover:text-white transition-colors"
-        >
+        <Link href="/" className="text-zinc-400 text-sm hover:text-white transition-colors">
           ← Back to site
         </Link>
       </nav>
@@ -227,17 +290,15 @@ export default function GeneratePage() {
       <div className="max-w-6xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-3xl font-black mb-2">
-            Content Engine
-          </h1>
-          <p className="text-zinc-400">
-            Generate on-brand PRICEIT content in seconds. Powered by Claude.
-          </p>
+          <h1 className="text-3xl font-black mb-2">Content Engine</h1>
+          <p className="text-zinc-400">Generate on-brand PRICEIT content in seconds. Powered by Groq.</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
           {/* ── Left: Controls ── */}
           <div className="space-y-6">
+
             {/* Segment */}
             <div>
               <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">
@@ -282,7 +343,6 @@ export default function GeneratePage() {
                   </button>
                 ))}
               </div>
-              {/* Voice description */}
               <p className="mt-2 text-xs text-zinc-500 leading-relaxed">
                 {VOICES.find((v) => v.id === voice)?.description}
               </p>
@@ -327,12 +387,11 @@ export default function GeneratePage() {
                 rows={2}
                 className="w-full bg-zinc-900 border border-zinc-700 rounded-lg px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-yellow-400 text-sm resize-none transition-colors"
               />
-              {/* Suggestions */}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {TOPIC_SUGGESTIONS[segment].map((s) => (
                   <button
                     key={s}
-                    onClick={() => useSuggestion(s)}
+                    onClick={() => setTopic(s)}
                     className="text-xs px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-full text-zinc-400 hover:text-white transition-all"
                   >
                     {s}
@@ -370,97 +429,70 @@ export default function GeneratePage() {
                 Format rules
               </div>
               <div className="text-sm text-zinc-400 space-y-1">
-                {format === "linkedin_post" && (
-                  <>
-                    <div>• Hook: 1–2 lines, no emoji on line 1</div>
-                    <div>• Body: 3–5 paragraphs with line breaks</div>
-                    <div>• CTA: 1 direct line at the end</div>
-                    <div>• Total: 150–300 words</div>
-                  </>
-                )}
-                {format === "cold_email" && (
-                  <>
-                    <div>• Subject: under 50 chars, no clickbait</div>
-                    <div>• No "I hope this finds you well"</div>
-                    <div>• Body: 3–5 sentences only</div>
-                    <div>• One ask per email</div>
-                  </>
-                )}
-                {format === "email_sequence" && (
-                  <>
-                    <div>• 3 emails: Day 0, 3, 7</div>
-                    <div>• Day 0: Pain-led cold email</div>
-                    <div>• Day 3: Social proof follow-up</div>
-                    <div>• Day 7: Value-add or breakup</div>
-                  </>
-                )}
-                {format === "blog_intro" && (
-                  <>
-                    <div>• H1 under 60 chars, sentence case</div>
-                    <div>• Intro: 2 sentences, lead with pain</div>
-                    <div>• First subhead + body paragraph</div>
-                    <div>• Ends with beta waitlist CTA</div>
-                  </>
-                )}
-                {format === "instagram" && (
-                  <>
-                    <div>• Hook on first line</div>
-                    <div>• Short punchy lines</div>
-                    <div>• Max 3 hashtags from approved list</div>
-                  </>
-                )}
-                {format === "x_post" && (
-                  <>
-                    <div>• Max 280 characters</div>
-                    <div>• One idea only</div>
-                    <div>• 0–1 hashtag</div>
-                  </>
-                )}
-                {format === "facebook_post" && (
-                  <>
-                    <div>• Hook in first 1–2 lines</div>
-                    <div>• Relatable story, conversational tone</div>
-                    <div>• 100–200 words</div>
-                    <div>• 1–2 hashtags max</div>
-                  </>
-                )}
-                {format === "whatsapp_message" && (
-                  <>
-                    <div>• Sounds like a text from a colleague</div>
-                    <div>• Under 100 words</div>
-                    <div>• No subject line, no sales pitch</div>
-                    <div>• One clear ask at the end</div>
-                  </>
-                )}
-                {format === "snapchat" && (
-                  <>
-                    <div>• Caption: under 50 characters</div>
-                    <div>• Context: 1–2 short lines</div>
-                    <div>• Visual and punchy</div>
-                    <div>• No hashtags</div>
-                  </>
-                )}
+                {format === "linkedin_post"    && <><div>• Hook: 1–2 lines, no emoji on line 1</div><div>• Body: 3–5 paragraphs with line breaks</div><div>• CTA: 1 direct line at the end</div><div>• Total: 150–300 words</div></>}
+                {format === "cold_email"       && <><div>• Subject: under 50 chars, no clickbait</div><div>• No "I hope this finds you well"</div><div>• Body: 3–5 sentences only</div><div>• One ask per email</div></>}
+                {format === "email_sequence"   && <><div>• 3 emails: Day 0, 3, 7</div><div>• Day 0: Pain-led cold email</div><div>• Day 3: Social proof follow-up</div><div>• Day 7: Value-add or breakup</div></>}
+                {format === "blog_intro"       && <><div>• H1 under 60 chars, sentence case</div><div>• Intro: 2 sentences, lead with pain</div><div>• First subhead + body paragraph</div><div>• Ends with beta waitlist CTA</div></>}
+                {format === "instagram"        && <><div>• Hook on first line</div><div>• Short punchy lines</div><div>• Max 3 hashtags from approved list</div></>}
+                {format === "x_post"           && <><div>• Max 280 characters</div><div>• One idea only</div><div>• 0–1 hashtag</div></>}
+                {format === "facebook_post"    && <><div>• Hook in first 1–2 lines</div><div>• Relatable story, conversational tone</div><div>• 100–200 words</div><div>• 1–2 hashtags max</div></>}
+                {format === "whatsapp_message" && <><div>• Sounds like a text from a colleague</div><div>• Under 100 words</div><div>• No subject line, no sales pitch</div><div>• One clear ask at the end</div></>}
+                {format === "snapchat"         && <><div>• Caption: under 50 characters</div><div>• Context: 1–2 short lines</div><div>• Visual and punchy</div><div>• No hashtags</div></>}
               </div>
             </div>
           </div>
 
           {/* ── Right: Output ── */}
           <div className="flex flex-col">
+
+            {/* Output tabs (Feature 1) */}
+            {tabs.length > 0 && (
+              <div className="flex gap-1 mb-3 overflow-x-auto pb-1 scrollbar-none">
+                {tabs.map((tab) => {
+                  const isLoading = loadingFormats.has(tab.format);
+                  return (
+                    <button
+                      key={tab.format}
+                      onClick={() => setActiveTabFormat(tab.format)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all border ${
+                        activeTabFormat === tab.format
+                          ? "bg-zinc-700 border-zinc-600 text-white"
+                          : "bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300 hover:border-zinc-700"
+                      }`}
+                    >
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                      {isLoading ? (
+                        <span className="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse" />
+                      ) : tab.score !== null ? (
+                        <span className={`text-xs ${
+                          tab.score >= 62 ? "text-green-400"
+                          : tab.score >= 50 ? "text-yellow-400"
+                          : "text-red-400"
+                        }`}>
+                          {tab.score}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Output header */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <label className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
                   Output
                 </label>
                 {qualityScore !== null && (
-                  <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      qualityScore >= 70
-                        ? "bg-green-400/15 text-green-400 border border-green-400/30"
-                        : qualityScore >= 55
-                        ? "bg-yellow-400/15 text-yellow-400 border border-yellow-400/30"
-                        : "bg-red-400/15 text-red-400 border border-red-400/30"
-                    }`}
-                  >
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                    qualityScore >= 62
+                      ? "bg-green-400/15 text-green-400 border border-green-400/30"
+                      : qualityScore >= 50
+                      ? "bg-yellow-400/15 text-yellow-400 border border-yellow-400/30"
+                      : "bg-red-400/15 text-red-400 border border-red-400/30"
+                  }`}>
                     Quality {qualityScore}/100
                   </span>
                 )}
@@ -471,32 +503,19 @@ export default function GeneratePage() {
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-zinc-400 hover:text-white transition-all"
                 >
                   {copied ? (
-                    <>
-                      <svg className="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      <span className="text-green-400">Copied!</span>
-                    </>
+                    <><svg className="w-3.5 h-3.5 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg><span className="text-green-400">Copied!</span></>
                   ) : (
-                    <>
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                      Copy
-                    </>
+                    <><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>Copy</>
                   )}
                 </button>
               )}
             </div>
 
+            {/* Output box */}
             <div
               ref={outputRef}
-              className={`flex-1 min-h-[500px] bg-zinc-900 border rounded-lg p-6 overflow-y-auto transition-colors ${
-                error
-                  ? "border-red-500/50"
-                  : output
-                  ? "border-zinc-700"
-                  : "border-zinc-800"
+              className={`flex-1 min-h-[440px] bg-zinc-900 border rounded-lg p-6 overflow-y-auto transition-colors ${
+                error ? "border-red-500/50" : output ? "border-zinc-700" : "border-zinc-800"
               }`}
             >
               {error ? (
@@ -514,7 +533,7 @@ export default function GeneratePage() {
               ) : output ? (
                 <pre className="text-zinc-100 text-sm leading-relaxed whitespace-pre-wrap font-sans">
                   {output}
-                  {isGenerating && (
+                  {(isGenerating || loadingFormats.has(activeTabFormat!)) && (
                     <span className="inline-block w-0.5 h-4 bg-yellow-400 ml-0.5 animate-pulse" />
                   )}
                 </pre>
@@ -522,51 +541,89 @@ export default function GeneratePage() {
                 <div className="h-full flex flex-col items-center justify-center text-zinc-600">
                   <div className="text-4xl mb-3">✦</div>
                   <div className="text-sm text-center">
-                    Choose a format, pick your audience,
-                    <br />
-                    then hit Generate.
+                    Choose a format, pick your audience,<br />then hit Generate.
                   </div>
                   {isGenerating && (
-                    <div className="mt-4 text-yellow-400 text-xs animate-pulse">
-                      Claude is writing…
-                    </div>
+                    <div className="mt-4 text-yellow-400 text-xs animate-pulse">Writing…</div>
                   )}
                 </div>
               )}
             </div>
 
-            {/* Character count */}
+            {/* Character count (Feature 2) */}
             {output && (
-              <div className="mt-2 text-xs text-zinc-600 text-right">
-                {output.length} chars · {output.split(/\s+/).filter(Boolean).length} words
+              <div className={`mt-2 text-xs text-right ${charColor}`}>
+                {charCount} chars
+                {charLimit && ` / ${charLimit.max} max`}
+                {" · "}
+                {output.split(/\s+/).filter(Boolean).length} words
+                {charLimit && charCount > charLimit.max && (
+                  <span className="ml-2 text-red-400">⚠ Over limit</span>
+                )}
               </div>
             )}
 
-            {/* Repurpose row */}
+            {/* Repurpose section */}
             {output && !isGenerating && (
               <div className="mt-4">
-                <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-2">
-                  Repurpose to →
+                {/* Repurpose header + voice toggle (Feature 4) */}
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">
+                    Repurpose to →
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-zinc-600 mr-1">Voice:</span>
+                    {VOICES.map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => setRepurposeVoice(v.id)}
+                        className={`text-xs px-2 py-0.5 rounded border transition-all ${
+                          repurposeVoice === v.id
+                            ? "border-yellow-400/60 text-yellow-400 bg-yellow-400/10"
+                            : "border-zinc-700 text-zinc-500 hover:text-zinc-300"
+                        }`}
+                      >
+                        {v.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Repurpose pills */}
                 <div className="flex flex-wrap gap-2">
-                  {REPURPOSE_TARGETS.filter((t) => t.id !== format).map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => repurpose(t.id)}
-                      disabled={isRepurposing}
-                      className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all ${
-                        repurposingTo === t.id
-                          ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
-                          : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500 hover:text-white"
-                      } disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                      <span>{t.icon}</span>
-                      <span>
-                        {repurposingTo === t.id ? "Converting…" : t.label}
-                      </span>
-                    </button>
-                  ))}
+                  {REPURPOSE_ORDER.filter((t) => t !== activeTabFormat).map((t) => {
+                    const meta = ALL_FORMAT_META[t];
+                    const isLoading = loadingFormats.has(t);
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => repurpose(t)}
+                        disabled={isLoading || isBatchRunning}
+                        className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                          isLoading
+                            ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                            : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500 hover:text-white"
+                        } disabled:cursor-not-allowed`}
+                      >
+                        <span>{meta.icon}</span>
+                        <span>{isLoading ? "Converting…" : meta.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
+
+                {/* Batch repurpose button (Feature 3) */}
+                <button
+                  onClick={repurposeAll}
+                  disabled={isBatchRunning || isGenerating}
+                  className={`mt-2 w-full py-2 rounded-lg border text-xs font-semibold tracking-wide transition-all ${
+                    isBatchRunning
+                      ? "border-yellow-400/40 text-yellow-400/60 cursor-not-allowed"
+                      : "border-zinc-700 text-zinc-400 hover:border-yellow-400/40 hover:text-yellow-400"
+                  }`}
+                >
+                  {isBatchRunning ? "Generating all formats…" : "⚡ Generate all formats"}
+                </button>
               </div>
             )}
 
@@ -574,8 +631,8 @@ export default function GeneratePage() {
             {output && !isGenerating && (
               <button
                 onClick={generate}
-                disabled={isRepurposing}
-                className="mt-3 w-full py-2.5 border border-zinc-700 hover:border-zinc-500 rounded-lg text-zinc-400 hover:text-white text-sm transition-all disabled:opacity-50"
+                disabled={isBatchRunning}
+                className="mt-2 w-full py-2.5 border border-zinc-700 hover:border-zinc-500 rounded-lg text-zinc-400 hover:text-white text-sm transition-all disabled:opacity-50"
               >
                 Regenerate ↻
               </button>
@@ -583,7 +640,7 @@ export default function GeneratePage() {
           </div>
         </div>
 
-        {/* Footer note */}
+        {/* Footer */}
         <div className="mt-12 pt-8 border-t border-zinc-800 text-center text-zinc-600 text-xs">
           Content generated using PRICEIT brand voice + style guide. Always review before publishing.
         </div>
