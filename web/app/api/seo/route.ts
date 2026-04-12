@@ -19,22 +19,31 @@ export interface SeoScoreResult {
   };
 }
 
-export function scoreSeo(content: string, keyword: string): SeoScoreResult {
-  const lower = content.toLowerCase();
+// Check if text contains keyword — tries exact match first, then 70% word overlap
+function keywordMatch(text: string, keyword: string): boolean {
+  const t = text.toLowerCase();
   const kw = keyword.toLowerCase();
+  if (t.includes(kw)) return true;
+  // Word overlap fallback
+  const kwWords = kw.split(/\s+/).filter((w) => w.length > 3);
+  if (kwWords.length === 0) return false;
+  const matches = kwWords.filter((w) => t.includes(w));
+  return matches.length / kwWords.length >= 0.7;
+}
 
+export function scoreSeo(content: string, keyword: string): SeoScoreResult {
   const keywordInH1 = (() => {
     const h1Match = content.match(/^#\s+(.+)$/m);
-    return h1Match ? h1Match[1].toLowerCase().includes(kw) : false;
+    return h1Match ? keywordMatch(h1Match[1], keyword) : false;
   })();
 
   const keywordInMetaTitle = (() => {
     const match = content.match(/META TITLE:\s*(.+)/i);
-    return match ? match[1].toLowerCase().includes(kw) : false;
+    return match ? keywordMatch(match[1], keyword) : false;
   })();
 
   const metaDescriptionPresent = /META DESCRIPTION:\s*.{20,}/i.test(content);
-  const wordCount = content.split(/\s+/).filter(Boolean).length;
+  const wordCount               = content.split(/\s+/).filter(Boolean).length;
   const wordCountOk = wordCount >= 600;
   const faqPresent = /frequently asked questions|^## FAQ/im.test(content);
   const ctaPresent = /waitlist|beta|priceit\.io|sign up|get access/i.test(content);
@@ -99,7 +108,7 @@ Audience: ${segmentLabel}
 
 Use this exact structure — keep the labels so they can be parsed:
 
-META TITLE: [under 60 chars, includes keyword]
+META TITLE: [MUST contain the exact keyword "${keyword}" — under 60 chars total]
 META DESCRIPTION: [under 160 chars, includes keyword, ends with a soft CTA]
 
 # [H1 — includes keyword, under 60 chars, sentence case]
