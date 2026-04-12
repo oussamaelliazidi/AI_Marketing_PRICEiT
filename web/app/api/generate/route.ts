@@ -1,40 +1,12 @@
 import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { scoreContent, QUALITY_THRESHOLD } from "@/lib/contentScorer";
+import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
 
 const client = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
-// ── Brand Context ──────────────────────────────────────────────────────────
-
-const VOICE = `
-# PRICEIT Brand Voice
-
-## Core Personality
-PRICEIT speaks like a straight-talking contractor who also happens to understand software. Practical, no-nonsense, built-for-the-field energy. We respect our audience's time and intelligence.
-
-## Tone
-- Direct — Say what you mean. No fluff, no buzzwords.
-- Confident — We know our product works. No hedging.
-- Human — We talk like a person, not a brand.
-- Urgent but not pushy — Beta spots are real, scarcity is real, but we don't beg.
-
-## Writing Rules
-- Short sentences win. If you can cut a word, cut it.
-- Lead with the problem, not the product.
-- Use numbers when you can ("2 minutes", "60%", "$45K job").
-- NEVER say: "leverage", "synergy", "game-changer", "revolutionary", "cutting-edge", "world-class".
-- NEVER start with "We" — start with "You" or the pain.
-- Active voice always. Passive voice never.
-- Contractions are fine and preferred.
-
-## Content Don'ts
-- Vague promises: "Transform your business"
-- Corporate speak: "end-to-end solution", "best-in-class"
-- Excessive exclamation marks
-- AI-sounding phrases: "In today's fast-paced world...", "It's no secret that..."
-`;
 
 const STYLE_GUIDE = `
 # PRICEIT Style Guide
@@ -137,7 +109,7 @@ const OPENERS = [
 
 // ── Build prompts ──────────────────────────────────────────────────────────
 
-function buildMessages(format: string, segment: string, topic: string | undefined, tone: string | undefined) {
+function buildMessages(format: string, segment: string, topic: string | undefined, tone: string | undefined, voice: VoiceType = "street") {
   const icp = ICP[segment as keyof typeof ICP];
   const angle = topic || pick(ANGLES[segment as keyof typeof ANGLES]);
   const opener = pick(OPENERS);
@@ -146,15 +118,7 @@ function buildMessages(format: string, segment: string, topic: string | undefine
 
 PRICEIT lets contractors and firms price any job in under 2 minutes. No spreadsheets. No guessing. Just accurate quotes, fast.
 
-Your writing rules:
-- Sound like a real person wrote this, not a marketing team
-- Short sentences. Active voice. No fluff.
-- Use real numbers ($45K, 3 days, 60%) — make them feel specific, not round
-- When you use a person's name, use common contractor names: Mike, Dave, Carlos, Tony, Ray, Luis, Joe, Marco, Pete — never tech or corporate names
-- Never end with a product claim or tagline. End with a human outcome, then mention PRICEIT quietly on its own line as the last thing
-- Never use: "leverage", "game-changer", "revolutionary", "in today's world", "it's no secret", "pricing solution"
-- PRICEIT is always all caps
-- Output only the content — no intro, no "here's your post", no commentary`;
+${VOICE_PROMPTS[voice]}`;
 
   const formatInstructions: Record<string, string> = {
     linkedin_post: `Write a LinkedIn post. ${opener}
@@ -230,7 +194,7 @@ Write it now.`;
 
 export async function POST(req: NextRequest) {
   try {
-    const { format, segment, topic, tone } = await req.json();
+    const { format, segment, topic, tone, voice } = await req.json();
 
     if (!format || !segment) {
       return new Response(
@@ -246,7 +210,7 @@ export async function POST(req: NextRequest) {
 
     // ── Internal quality loop (non-streaming) ──────────────────────────────
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const messages = buildMessages(format, segment, topic, tone);
+      const messages = buildMessages(format, segment, topic, tone, (voice as VoiceType) || "street");
 
       const completion = await client.chat.completions.create({
         model: "llama-3.3-70b-versatile",

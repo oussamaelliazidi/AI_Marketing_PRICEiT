@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import Link from "next/link";
+import { VOICES, VoiceType } from "@/lib/voices";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -84,6 +85,7 @@ const TOPIC_SUGGESTIONS: Record<Segment, string[]> = {
 export default function GeneratePage() {
   const [segment, setSegment] = useState<Segment>("small_contractor");
   const [format, setFormat] = useState<Format>("linkedin_post");
+  const [voice, setVoice] = useState<VoiceType>("street");
   const [topic, setTopic] = useState("");
   const [output, setOutput] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
@@ -108,7 +110,7 @@ export default function GeneratePage() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ format, segment, topic }),
+        body: JSON.stringify({ format, segment, topic, voice }),
       });
 
       if (!res.ok) {
@@ -168,6 +170,7 @@ export default function GeneratePage() {
           sourceFormat: format,
           targetFormat,
           segment,
+          voice,
         }),
       });
 
@@ -256,6 +259,33 @@ export default function GeneratePage() {
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Voice */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">
+                Voice
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {VOICES.map((v) => (
+                  <button
+                    key={v.id}
+                    onClick={() => setVoice(v.id)}
+                    className={`p-3 rounded-lg border text-left transition-all ${
+                      voice === v.id
+                        ? "border-yellow-400 bg-yellow-400/10 text-white"
+                        : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500"
+                    }`}
+                  >
+                    <div className="font-semibold text-sm">{v.label}</div>
+                    <div className="text-xs mt-0.5 opacity-60 leading-tight">{v.tagline}</div>
+                  </button>
+                ))}
+              </div>
+              {/* Voice description */}
+              <p className="mt-2 text-xs text-zinc-500 leading-relaxed">
+                {VOICES.find((v) => v.id === voice)?.description}
+              </p>
             </div>
 
             {/* Format */}
