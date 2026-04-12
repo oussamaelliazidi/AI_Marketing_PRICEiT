@@ -4,7 +4,7 @@
  * Threshold: 70 for PRICEIT (stricter than the Python default of 60)
  */
 
-export const QUALITY_THRESHOLD = 70;
+export const QUALITY_THRESHOLD = 62;
 
 // ── Banned words (AI slop) ──────────────────────────────────────────────────
 
@@ -40,24 +40,32 @@ const AI_PATTERNS: [RegExp, string][] = [
 const CORPORATE_PATTERNS: RegExp[] = [
   /I'm excited to share/i,
   /it is important to note/i,
-  /in order to/i,
   /we are pleased to announce/i,
-  /stay tuned for/i,
+  /stay tuned for more/i,
 ];
 
 // ── Voice markers ───────────────────────────────────────────────────────────
 
 const VOICE_MARKERS: [RegExp, number, string][] = [
-  [/\$[\d,]+[KkMmBb]?(?:\+)?/g, 2.0, "revenue_markers"],
+  // Money — strongest signal for contractor content
+  [/\$[\d,]+[KkMmBb]?(?:\+)?/g, 2.5, "revenue_markers"],
   [/\d+%/g, 1.5, "percentage_stats"],
   [/\d+x/g, 1.5, "multiplier_stats"],
-  [/\d+ (?:hours?|minutes?|days?|weeks?|months?|years?)/gi, 1.0, "time_specifics"],
-  [/\d+ (?:pages?|pieces?|tools?|agents?|companies|founders?|members)/gi, 1.0, "count_specifics"],
-  [/I (?:built|found|asked|remember|had lunch)/g, 2.0, "personal_framing"],
-  [/Here's what happened|A friend who|I asked \d+/gi, 1.5, "story_framing"],
+  // Time specificity — job timelines are very PRICEIT
+  [/\d+ (?:hours?|minutes?|days?|weeks?|months?|years?)/gi, 1.5, "time_specifics"],
+  // Contractor story patterns — 3rd person narrative
+  [/(?:Mike|Dave|Carlos|Tony|Ray|Luis|Joe|Marco|Pete)\b/g, 2.0, "contractor_names"],
+  [/won (?:a |the )?(?:job|bid|contract)|lost (?:a |the )?(?:job|bid|contract)/gi, 2.0, "bid_outcome"],
+  [/quoted?|bid|estimate[d]?|price[d]?/gi, 1.0, "pricing_language"],
+  [/job site|roofing|plumbing|electrical|drywall|concrete|contractor|GC\b/gi, 1.0, "trade_language"],
+  // Direct address
+  [/\bYou(?:'re| are| were| don't| can't| won't| have)\b/g, 1.5, "direct_address"],
+  // Contrarian / hook patterns
   [/Most people .{1,50} wrong|Everyone says .{1,30} That's/gi, 2.0, "contrarian_hooks"],
-  [/Harsh reality:/gi, 1.5, "harsh_reality"],
-  [/What's your take\?|What did I miss\?|What would you do/gi, 1.0, "engagement_cta"],
+  [/Harsh reality:|Here's the truth:|The problem:/gi, 1.5, "tension_hooks"],
+  // Engagement
+  [/What's your take\?|What did I miss\?|What would you do|Sound familiar/gi, 1.0, "engagement_cta"],
+  // Short punchy sentences
   [/[.!?]\s+[A-Z][^.!?]{1,75}[.!?]/g, 0.5, "short_sentences"],
 ];
 
