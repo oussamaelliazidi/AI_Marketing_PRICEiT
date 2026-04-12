@@ -161,6 +161,18 @@ export default function GeneratePage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  function resetAll() {
+    setTabs([]);
+    setActiveTabFormat(null);
+    setError("");
+    setCopied(false);
+    setTopic("");
+    setSegment("small_contractor");
+    setFormat("linkedin_post");
+    setVoice("street");
+    setRepurposeVoice("street");
+  }
+
   // ── Generate ──
 
   async function generate() {
@@ -282,9 +294,19 @@ export default function GeneratePage() {
           <span className="text-yellow-400 font-black text-xl tracking-tight">PRICEIT</span>
           <span className="text-zinc-500 text-sm">/ Content Engine</span>
         </Link>
-        <Link href="/" className="text-zinc-400 text-sm hover:text-white transition-colors">
-          ← Back to site
-        </Link>
+        <div className="flex items-center gap-4">
+          {tabs.length > 0 && (
+            <button
+              onClick={resetAll}
+              className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-500 hover:text-red-400 hover:border-red-400/50 transition-all"
+            >
+              ↺ Reset
+            </button>
+          )}
+          <Link href="/" className="text-zinc-400 text-sm hover:text-white transition-colors">
+            ← Back to site
+          </Link>
+        </div>
       </nav>
 
       <div className="max-w-6xl mx-auto px-6 py-10">
