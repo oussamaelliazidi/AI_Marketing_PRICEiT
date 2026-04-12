@@ -190,8 +190,10 @@ export default function GeneratePage() {
         }
       }
 
-      // Switch active format to the repurposed one
-      setFormat(targetFormat);
+      // Only switch format picker if target exists in the main FORMATS list
+      if (FORMATS.some((f) => f.id === targetFormat)) {
+        setFormat(targetFormat);
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Repurpose failed");
     } finally {
