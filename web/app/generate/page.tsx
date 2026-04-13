@@ -478,7 +478,7 @@ export default function GeneratePage() {
                     disabled={quotesLoading}
                     className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors disabled:opacity-40"
                   >
-                    {quotesLoading ? "Loading…" : "↻ Refresh"}
+                    {quotesLoading ? "Loading…" : "↻ New topics"}
                   </button>
                 </div>
 
@@ -497,8 +497,8 @@ export default function GeneratePage() {
                     No industry quotes found
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {industryQuotes.slice(0, 6).map((q) => (
+                  <div className="grid grid-cols-2 gap-2 max-h-72 overflow-y-auto pr-1">
+                    {industryQuotes.slice(0, 8).map((q) => (
                       <button
                         key={q.id}
                         onClick={() => useQuote(q)}

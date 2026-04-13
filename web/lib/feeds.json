@@ -10,13 +10,28 @@
     "segment": "large_firm"
   },
   {
-    "name": "Pro Builder",
-    "url": "https://www.probuilder.com/rss.xml",
+    "name": "Builder Online",
+    "url": "https://www.builderonline.com/rss/news.rss",
     "segment": "small_contractor"
   },
   {
-    "name": "JLC Online",
-    "url": "https://www.jlconline.com/rss/news",
+    "name": "Contractor Mag",
+    "url": "https://www.contractormag.com/rss",
+    "segment": "small_contractor"
+  },
+  {
+    "name": "Construction Business Owner",
+    "url": "https://www.constructionbusinessowner.com/rss.xml",
+    "segment": "both"
+  },
+  {
+    "name": "Equipment World",
+    "url": "https://www.equipmentworld.com/rss/all",
+    "segment": "both"
+  },
+  {
+    "name": "For Construction Pros",
+    "url": "https://www.forconstructionpros.com/rss/all",
     "segment": "small_contractor"
   },
   {

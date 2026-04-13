@@ -119,7 +119,7 @@ async function mineFeeds(): Promise<MinedQuote[]> {
       });
       if (!res.ok) throw new Error(`${feed.name}: HTTP ${res.status}`);
       const xml = await res.text();
-      return { feed, items: parseRssItems(xml, 3) };
+      return { feed, items: parseRssItems(xml, 5) };
     })
   );
 
