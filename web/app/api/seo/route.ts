@@ -1,6 +1,7 @@
 import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
+import { getSupabase } from "@/lib/supabase";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -171,6 +172,24 @@ Write the full post now. Target 600–700 words total — no more. People have s
     }
 
     const finalSeoScore = scoreSeo(bestContent, keyword);
+
+    // ── Save to Supabase for AI training (fire & forget) ───────────────────
+    const wordCount = bestContent.split(/\s+/).filter(Boolean).length;
+    getSupabase()
+      .from("seo_generations")
+      .insert({
+        keyword,
+        segment:    segment   || "unknown",
+        voice:      voiceKey,
+        content:    bestContent,
+        seo_score:  finalSeoScore.total,
+        word_count: wordCount,
+        seo_checks: finalSeoScore.checks,
+        attempts:   MAX_ATTEMPTS,
+      })
+      .then(({ error }) => {
+        if (error) console.error("[supabase:seo_generations]", error.message);
+      });
 
     const readable = new ReadableStream({
       start(controller) {

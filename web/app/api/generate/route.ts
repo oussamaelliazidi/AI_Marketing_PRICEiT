@@ -2,6 +2,7 @@ import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { scoreContent, QUALITY_THRESHOLD } from "@/lib/contentScorer";
 import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
+import { getSupabase } from "@/lib/supabase";
 
 const client = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -235,6 +236,24 @@ export async function POST(req: NextRequest) {
         break;
       }
     }
+
+    // ── Save to Supabase for AI training (fire & forget) ───────────────────
+    const wordCount = bestContent.split(/\s+/).filter(Boolean).length;
+    getSupabase()
+      .from("content_generations")
+      .insert({
+        format,
+        voice:         (voice as VoiceType) || "street",
+        segment:       segment || "unknown",
+        topic:         topic   || null,
+        content:       bestContent,
+        quality_score: finalScore,
+        attempts:      MAX_ATTEMPTS,
+        word_count:    wordCount,
+      })
+      .then(({ error }) => {
+        if (error) console.error("[supabase:content_generations]", error.message);
+      });
 
     // ── Stream the approved content back ───────────────────────────────────
     const encoder = new TextEncoder();

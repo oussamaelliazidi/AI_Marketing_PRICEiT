@@ -2,6 +2,7 @@ import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { scoreContent } from "@/lib/contentScorer";
 import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
+import { getSupabase } from "@/lib/supabase";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -124,6 +125,22 @@ Write it now.`;
 
       if (result.passed) break;
     }
+
+    // ── Save to Supabase for AI training (fire & forget) ───────────────────
+    getSupabase()
+      .from("content_repurposes")
+      .insert({
+        source_format:      sourceFormat  || "unknown",
+        target_format:      targetFormat,
+        source_content:     content,
+        repurposed_content: bestContent,
+        voice:              (voice as VoiceType) || "street",
+        segment:            segment || "unknown",
+        quality_score:      bestScore,
+      })
+      .then(({ error }) => {
+        if (error) console.error("[supabase:content_repurposes]", error.message);
+      });
 
     const readable = new ReadableStream({
       start(controller) {
