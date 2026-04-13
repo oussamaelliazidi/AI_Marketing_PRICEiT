@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { VOICES, VoiceType } from "@/lib/voices";
+import type { MinedQuote } from "@/app/api/quotes/route";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,11 @@ export default function GeneratePage() {
   const [error, setError]   = useState("");
   const [copied, setCopied] = useState(false);
 
+  // Phase 4 — Industry quotes
+  const [industryQuotes, setIndustryQuotes] = useState<MinedQuote[]>([]);
+  const [quotesLoading, setQuotesLoading]   = useState(false);
+  const [quotesError, setQuotesError]       = useState(false);
+
   const outputRef = useRef<HTMLDivElement>(null);
 
   // ── Derived ──
@@ -171,6 +177,43 @@ export default function GeneratePage() {
     setFormat("linkedin_post");
     setVoice("street");
     setRepurposeVoice("street");
+  }
+
+  // ── Phase 4: Fetch industry quotes on mount ───────────────────────────────
+
+  useEffect(() => {
+    setQuotesLoading(true);
+    fetch(`/api/quotes?segment=${segment}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setIndustryQuotes(data);
+        else setQuotesError(true);
+      })
+      .catch(() => setQuotesError(true))
+      .finally(() => setQuotesLoading(false));
+  }, [segment]);
+
+  async function useQuote(q: MinedQuote) {
+    setTopic(q.topic_suggestion);
+    // Record behavioral signal (fire & forget)
+    fetch("/api/quotes/use", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: q.id }),
+    }).catch(() => {});
+  }
+
+  async function refreshQuotes() {
+    setQuotesLoading(true);
+    setQuotesError(false);
+    fetch(`/api/quotes?segment=${segment}&refresh=1`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setIndustryQuotes(data);
+        else setQuotesError(true);
+      })
+      .catch(() => setQuotesError(true))
+      .finally(() => setQuotesLoading(false));
   }
 
   // ── Generate ──
@@ -422,6 +465,58 @@ export default function GeneratePage() {
                     {s}
                   </button>
                 ))}
+              </div>
+
+              {/* ── Phase 4: From Industry ── */}
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">
+                    📰 From Industry
+                  </span>
+                  <button
+                    onClick={refreshQuotes}
+                    disabled={quotesLoading}
+                    className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors disabled:opacity-40"
+                  >
+                    {quotesLoading ? "Loading…" : "↻ Refresh"}
+                  </button>
+                </div>
+
+                {quotesLoading ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="h-20 rounded-lg bg-zinc-800/60 animate-pulse" />
+                    ))}
+                  </div>
+                ) : quotesError ? (
+                  <div className="text-xs text-zinc-600 py-3 text-center">
+                    Couldn't load industry news — try refreshing
+                  </div>
+                ) : industryQuotes.length === 0 ? (
+                  <div className="text-xs text-zinc-600 py-3 text-center">
+                    No industry quotes found
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {industryQuotes.slice(0, 6).map((q) => (
+                      <button
+                        key={q.id}
+                        onClick={() => useQuote(q)}
+                        className="text-left p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800/80 transition-all group"
+                      >
+                        <div className="text-[10px] text-zinc-600 font-medium mb-1 uppercase tracking-wide">
+                          {q.source}
+                        </div>
+                        <div className="text-xs text-zinc-400 leading-snug line-clamp-2 mb-2 group-hover:text-zinc-300">
+                          {q.quote}
+                        </div>
+                        <div className="text-[10px] text-yellow-500/80 leading-snug line-clamp-1">
+                          → {q.topic_suggestion}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

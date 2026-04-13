@@ -1,0 +1,30 @@
+import { NextRequest } from "next/server";
+import { getSupabase } from "@/lib/supabase";
+
+// POST /api/quotes/use
+// Body: { id: string }
+// Marks a mined quote as used (behavioral signal for AI training)
+
+export async function POST(req: NextRequest) {
+  try {
+    const { id } = await req.json();
+    if (!id) {
+      return Response.json({ error: "id is required" }, { status: 400 });
+    }
+
+    // Fire & forget — RLS allows anon UPDATE on mined_quotes
+    getSupabase()
+      .from("mined_quotes")
+      .update({ used_as_topic: true, used_at: new Date().toISOString() })
+      .eq("id", id)
+      .then(({ error }) => {
+        if (error) console.error("[supabase:mined_quotes:use]", error.message);
+      });
+
+    return Response.json({ ok: true });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[/api/quotes/use]", message);
+    return Response.json({ error: message }, { status: 500 });
+  }
+}

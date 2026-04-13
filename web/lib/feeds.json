@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Construction Dive",
+    "url": "https://www.constructiondive.com/feeds/news/",
+    "segment": "both"
+  },
+  {
+    "name": "ENR",
+    "url": "https://www.enr.com/rss/news",
+    "segment": "large_firm"
+  },
+  {
+    "name": "Pro Builder",
+    "url": "https://www.probuilder.com/rss.xml",
+    "segment": "small_contractor"
+  },
+  {
+    "name": "JLC Online",
+    "url": "https://www.jlconline.com/rss/news",
+    "segment": "small_contractor"
+  },
+  {
+    "name": "Buildings.com",
+    "url": "https://www.buildings.com/rss",
+    "segment": "large_firm"
+  }
+]
