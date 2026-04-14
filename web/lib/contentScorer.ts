@@ -1,7 +1,16 @@
 /**
  * Content Quality Scorer — TypeScript port of content-quality-scorer.py
  * Five scoring dimensions: voice similarity, specificity, AI slop, length, engagement.
- * Threshold: 70 for PRICEIT (stricter than the Python default of 60)
+ * Threshold: 62 for PRICEIT (intentional — not a regression from the Python default of 60).
+ *
+ * Format groups:
+ *   short  — x_post, snapchat, whatsapp_message  (under 300 chars / 100 words)
+ *   medium — instagram, facebook_post, cold_email (100–300 words)
+ *   long   — linkedin_post, email_sequence, blog_intro (150–800 words)
+ *
+ * Short formats use lower thresholds and adjusted weights.
+ * Voice scoring is normalised by content length so short formats aren't penalised
+ * for not fitting contractor names + numbers that simply don't fit in 280 chars.
  */
 
 export const QUALITY_THRESHOLD = 62;
@@ -69,12 +78,15 @@ const VOICE_MARKERS: [RegExp, number, string][] = [
   [/[.!?]\s+[A-Z][^.!?]{1,75}[.!?]/g, 0.5, "short_sentences"],
 ];
 
-// ── Platform limits ─────────────────────────────────────────────────────────
+// ── Platform limits (char counts) ───────────────────────────────────────────
 
 const PLATFORM_LIMITS: Record<string, { min: number; max: number; optMin: number; optMax: number }> = {
-  x:            { min: 50,  max: 280,  optMin: 150, optMax: 260 },
+  x:            { min: 50,  max: 280,  optMin: 120, optMax: 260 },
+  snapchat:     { min: 50,  max: 350,  optMin: 80,  optMax: 300 },  // caption (≤50) + 2-line blurb
+  whatsapp:     { min: 80,  max: 700,  optMin: 150, optMax: 600 },  // under 100 words
   linkedin:     { min: 200, max: 1500, optMin: 500, optMax: 1200 },
   instagram:    { min: 100, max: 800,  optMin: 200, optMax: 600 },
+  facebook:     { min: 100, max: 1200, optMin: 300, optMax: 900 },
   email:        { min: 100, max: 800,  optMin: 200, optMax: 600 },
   newsletter:   { min: 300, max: 2000, optMin: 800, optMax: 1600 },
   blog:         { min: 300, max: 2000, optMin: 500, optMax: 1500 },
@@ -82,20 +94,69 @@ const PLATFORM_LIMITS: Record<string, { min: number; max: number; optMin: number
 
 // Map content-engine format IDs → platform keys
 const FORMAT_TO_PLATFORM: Record<string, string> = {
-  linkedin_post:   "linkedin",
-  x_post:          "x",
-  instagram:       "instagram",
-  cold_email:      "email",
-  email_sequence:  "newsletter",
-  blog_intro:      "blog",
-  facebook_post:   "instagram",
-  whatsapp_message:"email",
-  snapchat:        "instagram",
+  linkedin_post:    "linkedin",
+  x_post:           "x",
+  instagram:        "instagram",
+  cold_email:       "email",
+  email_sequence:   "newsletter",
+  blog_intro:       "blog",
+  facebook_post:    "facebook",
+  whatsapp_message: "whatsapp",
+  snapchat:         "snapchat",
 };
 
-// ── Weights ─────────────────────────────────────────────────────────────────
+// ── Format groups — controls weights + threshold per group ───────────────────
 
-const WEIGHTS = {
+type FormatGroup = "short" | "medium" | "long";
+
+const FORMAT_GROUP: Record<string, FormatGroup> = {
+  x_post:           "short",
+  snapchat:         "short",
+  whatsapp_message: "short",
+  instagram:        "medium",
+  facebook_post:    "medium",
+  cold_email:       "medium",
+  linkedin_post:    "long",
+  email_sequence:   "long",
+  blog_intro:       "long",
+};
+
+// Per-group thresholds — short formats pass easier (can't fit all signals in 280 chars)
+const GROUP_THRESHOLD: Record<FormatGroup, number> = {
+  short:  48,
+  medium: 58,
+  long:   62,
+};
+
+// Per-group weights
+const GROUP_WEIGHTS: Record<FormatGroup, typeof WEIGHTS_DEFAULT> = {
+  short: {
+    // Short formats: slop-free + right length = pass. Voice/specificity are hard at 280 chars.
+    voice_similarity:       0.15,
+    specificity:            0.10,
+    slop_penalty:           0.40,
+    length_appropriateness: 0.25,
+    engagement_potential:   0.10,
+  },
+  medium: {
+    voice_similarity:       0.30,
+    specificity:            0.25,
+    slop_penalty:           0.25,
+    length_appropriateness: 0.10,
+    engagement_potential:   0.10,
+  },
+  long: {
+    voice_similarity:       0.35,
+    specificity:            0.25,
+    slop_penalty:           0.20,
+    length_appropriateness: 0.10,
+    engagement_potential:   0.10,
+  },
+};
+
+// ── Default weights (used as type reference) ─────────────────────────────────
+
+const WEIGHTS_DEFAULT = {
   voice_similarity:       0.35,
   specificity:            0.25,
   slop_penalty:           0.20,
@@ -103,16 +164,24 @@ const WEIGHTS = {
   engagement_potential:   0.10,
 };
 
+// Keep WEIGHTS for backwards compat — long group is the "standard"
+const WEIGHTS = GROUP_WEIGHTS.long;
+
 // ── Scoring functions ───────────────────────────────────────────────────────
 
-function scoreVoiceSimilarity(text: string): number {
+function scoreVoiceSimilarity(text: string, group: FormatGroup = "long"): number {
   let score = 0;
+  const wordCount = text.split(/\s+/).filter(Boolean).length;
+
+  // Normalisation factor: short content can't fit as many signals.
+  // A single $45K in a 30-word tweet should score as well as 3 in a 200-word post.
+  const lengthNorm = group === "short" ? 3.0 : group === "medium" ? 1.5 : 1.0;
 
   for (const [pattern, weight] of VOICE_MARKERS) {
     const matches = text.match(pattern);
     if (matches) {
       const count = matches.length;
-      const catScore = Math.min(weight * Math.log(count + 1) * 10, weight * 25);
+      const catScore = Math.min(weight * Math.log(count + 1) * 10 * lengthNorm, weight * 25);
       score += catScore;
     }
   }
@@ -125,6 +194,12 @@ function scoreVoiceSimilarity(text: string): number {
   });
   const ratio = short.length / Math.max(sentences.length, 1);
   score += ratio * 15;
+
+  // For short formats: reward density over total count
+  if (group === "short" && wordCount > 0) {
+    const densityBonus = Math.min((score / wordCount) * 5, 20);
+    score += densityBonus;
+  }
 
   return Math.min(score, 100);
 }
@@ -316,33 +391,42 @@ export interface ScoreResult {
 }
 
 export function scoreContent(text: string, format: string): ScoreResult {
-  const platform = FORMAT_TO_PLATFORM[format] ?? "x";
+  const platform  = FORMAT_TO_PLATFORM[format] ?? "x";
+  const group     = FORMAT_GROUP[format] ?? "long";
+  const weights   = GROUP_WEIGHTS[group];
+  const threshold = GROUP_THRESHOLD[group];
 
-  const voice       = scoreVoiceSimilarity(text);
+  const voice       = scoreVoiceSimilarity(text, group);
   const specificity = scoreSpecificity(text);
   const { score: slop, issues: slopIssues } = scoreSlopPenalty(text);
   const length      = scoreLengthAppropriateness(text, platform);
   const engagement  = scoreEngagementPotential(text, platform);
 
   const total = Math.round(
-    voice       * WEIGHTS.voice_similarity +
-    specificity * WEIGHTS.specificity +
-    slop        * WEIGHTS.slop_penalty +
-    length      * WEIGHTS.length_appropriateness +
-    engagement  * WEIGHTS.engagement_potential
+    voice       * weights.voice_similarity +
+    specificity * weights.specificity +
+    slop        * weights.slop_penalty +
+    length      * weights.length_appropriateness +
+    engagement  * weights.engagement_potential
   );
 
+  // Thresholds are group-aware — short formats pass at 48, medium at 58, long at 62
+  const voiceThreshold      = group === "short" ? 30 : 50;
+  const specificityThreshold = group === "short" ? 15 : 40;
+  const lengthThreshold      = group === "short" ? 40 : 60;
+  const engagementThreshold  = group === "short" ? 20 : 40;
+
   const issues: string[] = [];
-  if (voice < 50)       issues.push("Weak brand voice");
-  if (specificity < 40) issues.push("Needs more specific numbers/examples");
-  if (slop < 70)        issues.push(...slopIssues);
-  if (length < 60)      issues.push(`Length off for ${platform}`);
-  if (engagement < 40)  issues.push("Weak hook/CTA");
+  if (voice < voiceThreshold)           issues.push("Weak brand voice");
+  if (specificity < specificityThreshold) issues.push("Needs more specific numbers/examples");
+  if (slop < 70)                        issues.push(...slopIssues);
+  if (length < lengthThreshold)         issues.push(`Length off for ${platform}`);
+  if (engagement < engagementThreshold) issues.push("Weak hook/CTA");
 
   return {
     total,
     breakdown: { voice, specificity, slop, length, engagement },
-    passed: total >= QUALITY_THRESHOLD,
+    passed: total >= threshold,
     issues,
   };
 }

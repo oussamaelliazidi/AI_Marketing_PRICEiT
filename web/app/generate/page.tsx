@@ -349,6 +349,9 @@ export default function GeneratePage() {
           <Link href="/seo" className="text-zinc-400 text-sm hover:text-white transition-colors">
             SEO Engine →
           </Link>
+          <Link href="/conversion" className="text-zinc-400 text-sm hover:text-white transition-colors">
+            Conversion Audit →
+          </Link>
           <Link href="/" className="text-zinc-400 text-sm hover:text-white transition-colors">
             ← Back to site
           </Link>
