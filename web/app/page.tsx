@@ -175,8 +175,14 @@ export default function Home() {
           <a href="/seo" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
             SEO engine
           </a>
+          <a href="/repurpose" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
+            Repurpose
+          </a>
           <a href="/conversion" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
             Conversion audit
+          </a>
+          <a href="/history" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
+            History
           </a>
           <a href="#waitlist" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
             Join beta →
