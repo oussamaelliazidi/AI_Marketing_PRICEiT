@@ -1,10 +1,15 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { getSupabase } from "@/lib/supabase";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+// Sanitize user input before embedding in HTML to prevent injection
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 export async function POST(req: NextRequest) {
   const { email, segment } = await req.json();
@@ -13,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid email address." }, { status: 400 });
   }
 
-  const { error } = await supabase
+  const { error } = await getSupabase()
     .from("waitlist")
     .insert({ email: email.toLowerCase().trim(), segment: segment || "unknown" });
 
@@ -49,7 +54,7 @@ export async function POST(req: NextRequest) {
           </p>
           <div style="background:#111;border:1px solid #222;border-radius:8px;padding:16px 20px;margin:0 0 24px;">
             <p style="margin:0;font-size:13px;color:#6b7280;">Signed up as</p>
-            <p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#facc15;">${email}</p>
+            <p style="margin:4px 0 0;font-size:15px;font-weight:600;color:#facc15;">${escapeHtml(email)}</p>
           </div>
           <p style="color:#4b5563;font-size:13px;margin:0;">
             Built for contractors who mean business · © 2026 PRICEIT
@@ -58,6 +63,14 @@ export async function POST(req: NextRequest) {
       `,
     }),
   });
+
+  if (!brevoRes.ok) {
+    console.error(
+      "[brevo] Failed to send confirmation email",
+      brevoRes.status,
+      await brevoRes.text().catch(() => "")
+    );
+  }
 
   return NextResponse.json({ success: true }, { status: 200 });
 }

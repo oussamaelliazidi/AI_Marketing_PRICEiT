@@ -220,9 +220,11 @@ export async function POST(req: NextRequest) {
     let bestContent = "";
     let bestScore = 0;
     let finalScore = 0;
+    let usedAttempts = 0;
 
     // ── Internal quality loop (non-streaming) ──────────────────────────────
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      usedAttempts = attempt;
       const messages = buildMessages(format, segment, topic, tone, (voice as VoiceType) || "street");
 
       const completion = await client.chat.completions.create({
@@ -260,7 +262,7 @@ export async function POST(req: NextRequest) {
         topic:         topic   || null,
         content:       bestContent,
         quality_score: finalScore,
-        attempts:      MAX_ATTEMPTS,
+        attempts:      usedAttempts,
         word_count:    wordCount,
       })
       .then(({ error }) => {
