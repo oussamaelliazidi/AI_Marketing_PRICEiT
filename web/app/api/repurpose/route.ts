@@ -22,11 +22,20 @@ Max 120 words. No emojis. No exclamation marks.`,
 Subject line (under 50 chars) → blank line → 3-4 sentences max → one CTA.
 No "I hope this finds you well". Sign off: [First name], PRICEIT`,
 
-  email_sequence: `3-email cold outreach sequence.
-Email 1 (Day 0): Lead with the pain. Short. One ask.
-Email 2 (Day 3): One specific result or stat. Different angle.
-Email 3 (Day 7): Add value or a clean breakup line.
-Each email: Subject + body + sign-off. Under 80 words each.`,
+  email_sequence: `3-email cold outreach sequence. Each email must be complete and standalone.
+
+EMAIL 1 — Day 0 (Cold intro)
+Subject line (under 50 chars) → 3-4 sentences leading with the pain → one clear CTA → sign-off. 100-130 words.
+
+EMAIL 2 — Day 3 (Follow-up)
+Subject line → specific result or stat → 3-4 sentences from a different angle → one CTA → sign-off. 100-130 words.
+
+EMAIL 3 — Day 7 (Final touch)
+Subject line → genuine insight or tip OR a clean breakup line → 3-4 sentences → sign-off. 80-100 words.
+
+Label each: "EMAIL 1 — Day 0", "EMAIL 2 — Day 3", "EMAIL 3 — Day 7".
+No "I hope this finds you well". Sign off: [First name], PRICEIT
+Total: 280-360 words.`,
 
   blog_intro: `Blog post opening.
 H1 headline (under 60 chars) → 2-sentence intro (open with pain or stat) → first subhead → first body paragraph (100 words max).
@@ -107,7 +116,7 @@ Write it now.`;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const completion = await client.chat.completions.create({
         model: "llama-3.3-70b-versatile",
-        max_tokens: 1024,
+        max_tokens: targetFormat === "email_sequence" ? 2048 : 1024,
         stream: false,
         messages: [
           { role: "system", content: systemPrompt },

@@ -133,12 +133,24 @@ Format: Subject line (under 50 chars, no clickbait) → blank line → 3-4 sente
 No "I hope this finds you well". No fluff. Get to the point in sentence 1.
 Sign off: [First name], PRICEIT`,
 
-    email_sequence: `Write a 3-email cold outreach sequence.
+    email_sequence: `Write a 3-email cold outreach sequence. Each email must be complete and standalone.
 Story angle: ${angle}
-Email 1 (Day 0): Lead with the pain. Short. One ask.
-Email 2 (Day 3): One specific result or stat. Different angle from email 1.
-Email 3 (Day 7): Either add value (tip/insight) or a clean breakup line.
-Each email: Subject + body + sign-off. Keep each under 80 words.`,
+
+EMAIL 1 — Day 0 (Cold intro)
+Subject line (under 50 chars) → 3-4 sentences leading with the pain → one clear CTA → sign-off.
+100-130 words.
+
+EMAIL 2 — Day 3 (Follow-up)
+Subject line → reference a specific result or stat → 3-4 sentences from a different angle than Email 1 → one CTA → sign-off.
+100-130 words.
+
+EMAIL 3 — Day 7 (Final touch)
+Subject line → add a genuine insight or tip OR write a clean breakup line → 3-4 sentences → sign-off.
+80-100 words.
+
+Format each email clearly labeled: "EMAIL 1 — Day 0", "EMAIL 2 — Day 3", "EMAIL 3 — Day 7".
+No "I hope this finds you well". No fluff. Sign off: [First name], PRICEIT
+Total sequence: 280-360 words.`,
 
     blog_intro: `Write the opening of a blog post.
 Story angle: ${angle}
@@ -215,7 +227,7 @@ export async function POST(req: NextRequest) {
 
       const completion = await client.chat.completions.create({
         model: "llama-3.3-70b-versatile",
-        max_tokens: 1024,
+        max_tokens: format === "email_sequence" ? 2048 : 1024,
         stream: false,
         messages,
       });
