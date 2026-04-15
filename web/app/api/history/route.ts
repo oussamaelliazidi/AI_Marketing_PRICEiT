@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { isValidSegment } from "@/lib/validateInput";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -19,20 +20,30 @@ export interface HistoryItem {
 // ── GET /api/history ───────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  // Require a bearer token so the history endpoint isn't open to the public.
+  const authHeader = req.headers.get("authorization") ?? "";
+  const expectedKey = process.env.HISTORY_API_KEY;
+  if (expectedKey && authHeader !== `Bearer ${expectedKey}`) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const admin = getSupabaseAdmin();
 
   if (!admin) {
     return Response.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY not configured", items: [] },
+      { error: "History service unavailable", items: [] },
       { status: 503 }
     );
   }
 
+  const VALID_TYPES = ["all", "generation", "repurpose", "seo"];
   const { searchParams } = req.nextUrl;
-  const type    = searchParams.get("type")    ?? "all";   // all | generation | repurpose | seo
+  const rawType = searchParams.get("type") ?? "all";
+  const type    = VALID_TYPES.includes(rawType) ? rawType : "all";
   const format  = searchParams.get("format")  ?? "";
-  const segment = searchParams.get("segment") ?? "";
-  const limit   = Math.min(parseInt(searchParams.get("limit") ?? "50"), 100);
+  const rawSegment = searchParams.get("segment") ?? "";
+  const segment = rawSegment && isValidSegment(rawSegment) ? rawSegment : "";
+  const limit   = Math.min(parseInt(searchParams.get("limit") ?? "50") || 50, 100);
 
   const items: HistoryItem[] = [];
 

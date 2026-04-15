@@ -1,6 +1,13 @@
 import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import {
+  isValidSegment,
+  checkLength,
+  MAX_HEADLINE_LENGTH,
+  MAX_PAGE_CONTENT_LENGTH,
+  MAX_PAGE_URL_LENGTH,
+} from "@/lib/validateInput";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -50,8 +57,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const headlineErr = checkLength("headline", headline, MAX_HEADLINE_LENGTH);
+    if (headlineErr) return headlineErr;
+    const pageContentErr = checkLength("pageContent", pageContent, MAX_PAGE_CONTENT_LENGTH);
+    if (pageContentErr) return pageContentErr;
+    const pageUrlErr = checkLength("pageUrl", pageUrl, MAX_PAGE_URL_LENGTH);
+    if (pageUrlErr) return pageUrlErr;
+
+    const safeSegment = isValidSegment(segment) ? segment : "unknown";
+
     const audienceLabel =
-      segment === "large_firm"
+      safeSegment === "large_firm"
         ? "large construction firms (50+ employees, dedicated estimating teams)"
         : "small contractors (owner-operators, 1–20 people, pricing jobs manually)";
 
@@ -154,8 +170,10 @@ Return this exact JSON structure:
 
     return Response.json(result);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[/api/conversion-audit]", message);
-    return Response.json({ error: message }, { status: 500 });
+    console.error("[/api/conversion-audit]", err instanceof Error ? err.message : err);
+    return Response.json(
+      { error: "An internal error occurred. Please try again." },
+      { status: 500 }
+    );
   }
 }

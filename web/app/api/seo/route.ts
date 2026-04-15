@@ -2,6 +2,12 @@ import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
 import { getSupabase } from "@/lib/supabase";
+import {
+  isValidVoice,
+  isValidSegment,
+  checkLength,
+  MAX_KEYWORD_LENGTH,
+} from "@/lib/validateInput";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -84,11 +90,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const segmentLabel = segment === "large_firm"
+    const lengthErr = checkLength("keyword", keyword, MAX_KEYWORD_LENGTH);
+    if (lengthErr) return lengthErr;
+
+    const safeSegment = isValidSegment(segment) ? segment : "unknown";
+
+    const segmentLabel = safeSegment === "large_firm"
       ? "construction firms with estimating teams (50+ employees)"
       : "small contractors and owner-operators (1–20 people)";
 
-    const voiceKey = (voice as VoiceType) || "street";
+    const voiceKey: VoiceType = isValidVoice(voice) ? voice : "street";
 
     const systemPrompt = `You write SEO-optimised blog posts for PRICEIT — an AI construction pricing platform in private beta.
 
@@ -179,7 +190,7 @@ Write the full post now. Target 600–700 words total — no more. People have s
       .from("seo_generations")
       .insert({
         keyword,
-        segment:    segment   || "unknown",
+        segment:    safeSegment,
         voice:      voiceKey,
         content:    bestContent,
         seo_score:  finalSeoScore.total,
@@ -206,10 +217,9 @@ Write the full post now. Target 600–700 words total — no more. People have s
       },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[/api/seo]", message);
+    console.error("[/api/seo]", err instanceof Error ? err.message : err);
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: "An internal error occurred. Please try again." }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
