@@ -190,7 +190,7 @@ Return this exact JSON structure:
     try {
       const match = raw.match(/\{[\s\S]*\}/);
       result = match ? JSON.parse(match[0]) : null;
-      if (!result?.overall_score) throw new Error("Invalid response structure");
+      if (result?.overall_score == null || typeof result.overall_score !== "number") throw new Error("Invalid response structure");
     } catch {
       return Response.json(
         { error: "Failed to parse audit result — please try again" },
