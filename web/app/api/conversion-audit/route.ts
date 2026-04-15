@@ -1,7 +1,8 @@
-import Groq from "groq-sdk";
+import Groq, { APIError, APIConnectionError, RateLimitError, AuthenticationError } from "groq-sdk";
 import { NextRequest } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import {
+  VALID_SEGMENTS,
   isValidSegment,
   checkLength,
   MAX_HEADLINE_LENGTH,
@@ -48,11 +49,51 @@ export interface ConversionAuditResult {
 
 export async function POST(req: NextRequest) {
   try {
-    const { headline, pageContent, segment, pageUrl } = await req.json();
-
-    if (!headline) {
+    // ── Parse body ────────────────────────────────────────────────────────
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
       return Response.json(
-        { error: "headline is required" },
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      return Response.json(
+        { error: "Request body must be a JSON object" },
+        { status: 400 }
+      );
+    }
+
+    const { headline, pageContent, segment, pageUrl } = body as Record<string, unknown>;
+
+    // ── Validate inputs ──────────────────────────────────────────────────
+    if (!headline || typeof headline !== "string" || !headline.trim()) {
+      return Response.json(
+        { error: "headline is required and must be a non-empty string" },
+        { status: 400 }
+      );
+    }
+
+    if (segment !== undefined && !isValidSegment(segment)) {
+      return Response.json(
+        { error: `segment must be one of: ${VALID_SEGMENTS.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
+    if (pageContent !== undefined && typeof pageContent !== "string") {
+      return Response.json(
+        { error: "pageContent must be a string" },
+        { status: 400 }
+      );
+    }
+
+    if (pageUrl !== undefined && typeof pageUrl !== "string") {
+      return Response.json(
+        { error: "pageUrl must be a string" },
         { status: 400 }
       );
     }
@@ -136,17 +177,24 @@ Return this exact JSON structure:
       ],
     });
 
-    const raw = completion.choices[0]?.message?.content ?? "{}";
+    const raw = completion.choices[0]?.message?.content ?? "";
+
+    if (!raw.trim()) {
+      return Response.json(
+        { error: "Empty response from AI model — please try again" },
+        { status: 502 }
+      );
+    }
 
     let result: ConversionAuditResult;
     try {
       const match = raw.match(/\{[\s\S]*\}/);
       result = match ? JSON.parse(match[0]) : null;
-      if (!result?.overall_score) throw new Error("Invalid response");
+      if (result?.overall_score == null || typeof result.overall_score !== "number") throw new Error("Invalid response structure");
     } catch {
       return Response.json(
         { error: "Failed to parse audit result — please try again" },
-        { status: 500 }
+        { status: 502 }
       );
     }
 
@@ -170,9 +218,39 @@ Return this exact JSON structure:
 
     return Response.json(result);
   } catch (err: unknown) {
-    console.error("[/api/conversion-audit]", err instanceof Error ? err.message : err);
+    console.error("[/api/conversion-audit]", err);
+
+    // ── Groq SDK typed errors ──────────────────────────────────────────
+    if (err instanceof RateLimitError) {
+      return Response.json(
+        { error: "AI rate limit reached — please wait a moment and try again" },
+        { status: 429 }
+      );
+    }
+
+    if (err instanceof AuthenticationError) {
+      return Response.json(
+        { error: "AI service authentication failed — contact support" },
+        { status: 502 }
+      );
+    }
+
+    if (err instanceof APIConnectionError) {
+      return Response.json(
+        { error: "Could not reach AI service — please try again" },
+        { status: 503 }
+      );
+    }
+
+    if (err instanceof APIError) {
+      return Response.json(
+        { error: "AI service error — please try again" },
+        { status: 502 }
+      );
+    }
+
     return Response.json(
-      { error: "An internal error occurred. Please try again." },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
