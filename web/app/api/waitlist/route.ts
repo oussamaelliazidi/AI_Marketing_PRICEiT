@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { createRateLimiter } from "@/lib/rateLimit";
 import { isValidSegment } from "@/lib/validateInput";
-
-const limiter = createRateLimiter({ windowMs: 60_000, max: 5 });
 
 // Sanitize user input before embedding in HTML to prevent injection
 function escapeHtml(str: string): string {
@@ -16,9 +13,6 @@ function escapeHtml(str: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const limited = limiter.check(req);
-  if (limited) return limited;
-
   const { email, segment } = await req.json();
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {

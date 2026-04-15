@@ -1,9 +1,6 @@
 import { NextRequest } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
-import { createRateLimiter } from "@/lib/rateLimit";
 import { isValidSegment } from "@/lib/validateInput";
-
-const limiter = createRateLimiter({ windowMs: 60_000, max: 20 });
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -23,9 +20,6 @@ export interface HistoryItem {
 // ── GET /api/history ───────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
-  const limited = limiter.check(req);
-  if (limited) return limited;
-
   // Require a bearer token so the history endpoint isn't open to the public.
   const authHeader = req.headers.get("authorization") ?? "";
   const expectedKey = process.env.HISTORY_API_KEY;

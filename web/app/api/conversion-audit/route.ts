@@ -1,7 +1,6 @@
 import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { createRateLimiter } from "@/lib/rateLimit";
 import {
   isValidSegment,
   checkLength,
@@ -11,7 +10,6 @@ import {
 } from "@/lib/validateInput";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const limiter = createRateLimiter({ windowMs: 60_000, max: 10 });
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -49,9 +47,6 @@ export interface ConversionAuditResult {
 // ── Route ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const limited = limiter.check(req);
-  if (limited) return limited;
-
   try {
     const { headline, pageContent, segment, pageUrl } = await req.json();
 

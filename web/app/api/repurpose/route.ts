@@ -3,7 +3,6 @@ import { NextRequest } from "next/server";
 import { scoreContent } from "@/lib/contentScorer";
 import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
 import { getSupabase } from "@/lib/supabase";
-import { createRateLimiter } from "@/lib/rateLimit";
 import {
   isValidFormat,
   isValidVoice,
@@ -13,7 +12,6 @@ import {
 } from "@/lib/validateInput";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const limiter = createRateLimiter({ windowMs: 60_000, max: 10 });
 
 // ── Format instructions (same voice rules, different shape) ────────────────
 
@@ -76,9 +74,6 @@ const FORMAT_LABELS: Record<string, string> = {
 // ── Route ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const limited = limiter.check(req);
-  if (limited) return limited;
-
   try {
     const { content, sourceFormat, targetFormat, segment, voice } = await req.json();
 

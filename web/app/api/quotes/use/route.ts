@@ -1,17 +1,10 @@
 import { NextRequest } from "next/server";
 import { getSupabase } from "@/lib/supabase";
-import { createRateLimiter } from "@/lib/rateLimit";
-
-const limiter = createRateLimiter({ windowMs: 60_000, max: 20 });
-
 // POST /api/quotes/use
 // Body: { id: string }
 // Marks a mined quote as used (behavioral signal for AI training)
 
 export async function POST(req: NextRequest) {
-  const limited = limiter.check(req);
-  if (limited) return limited;
-
   try {
     const { id } = await req.json();
     if (!id) {
