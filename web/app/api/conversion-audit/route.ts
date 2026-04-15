@@ -1,6 +1,14 @@
 import Groq, { APIError, APIConnectionError, RateLimitError, AuthenticationError } from "groq-sdk";
 import { NextRequest } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import {
+  VALID_SEGMENTS,
+  isValidSegment,
+  checkLength,
+  MAX_HEADLINE_LENGTH,
+  MAX_PAGE_CONTENT_LENGTH,
+  MAX_PAGE_URL_LENGTH,
+} from "@/lib/validateInput";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -39,8 +47,6 @@ export interface ConversionAuditResult {
 
 // ── Route ──────────────────────────────────────────────────────────────────
 
-const VALID_SEGMENTS = ["small_contractor", "large_firm"] as const;
-
 export async function POST(req: NextRequest) {
   try {
     // ── Parse body ────────────────────────────────────────────────────────
@@ -71,7 +77,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (segment !== undefined && !VALID_SEGMENTS.includes(segment as typeof VALID_SEGMENTS[number])) {
+    if (segment !== undefined && !isValidSegment(segment)) {
       return Response.json(
         { error: `segment must be one of: ${VALID_SEGMENTS.join(", ")}` },
         { status: 400 }
@@ -92,8 +98,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const headlineErr = checkLength("headline", headline, MAX_HEADLINE_LENGTH);
+    if (headlineErr) return headlineErr;
+    const pageContentErr = checkLength("pageContent", pageContent, MAX_PAGE_CONTENT_LENGTH);
+    if (pageContentErr) return pageContentErr;
+    const pageUrlErr = checkLength("pageUrl", pageUrl, MAX_PAGE_URL_LENGTH);
+    if (pageUrlErr) return pageUrlErr;
+
+    const safeSegment = isValidSegment(segment) ? segment : "unknown";
+
     const audienceLabel =
-      segment === "large_firm"
+      safeSegment === "large_firm"
         ? "large construction firms (50+ employees, dedicated estimating teams)"
         : "small contractors (owner-operators, 1–20 people, pricing jobs manually)";
 

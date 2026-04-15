@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { isValidSegment } from "@/lib/validateInput";
 
 // Sanitize user input before embedding in HTML to prevent injection
 function escapeHtml(str: string): string {
@@ -18,9 +19,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid email address." }, { status: 400 });
   }
 
+  const safeSegment = isValidSegment(segment) ? segment : "unknown";
+
   const { error } = await getSupabase()
     .from("waitlist")
-    .insert({ email: email.toLowerCase().trim(), segment: segment || "unknown" });
+    .insert({ email: email.toLowerCase().trim(), segment: safeSegment });
 
   if (error) {
     if (error.code === "23505") {
