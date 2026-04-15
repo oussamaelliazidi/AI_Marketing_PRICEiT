@@ -66,6 +66,12 @@ export function checkLength(
   value: string | undefined | null,
   max: number
 ): Response | null {
+  if (value != null && typeof value !== "string") {
+    return new Response(
+      JSON.stringify({ error: `${fieldName} must be a string` }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
   if (value && value.length > max) {
     return new Response(
       JSON.stringify({ error: `${fieldName} exceeds maximum length of ${max} characters` }),
