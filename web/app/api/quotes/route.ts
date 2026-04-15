@@ -2,8 +2,11 @@ import Groq from "groq-sdk";
 import { NextRequest } from "next/server";
 import { getSupabase } from "@/lib/supabase";
 import feeds from "@/lib/feeds.json";
+import { createRateLimiter } from "@/lib/rateLimit";
+import { isValidSegment } from "@/lib/validateInput";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const limiter = createRateLimiter({ windowMs: 60_000, max: 10 });
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -196,8 +199,12 @@ async function mineFeeds(): Promise<MinedQuote[]> {
 // ── GET /api/quotes ────────────────────────────────────────────────────────
 
 export async function GET(req: NextRequest) {
+  const limited = limiter.check(req);
+  if (limited) return limited;
+
   try {
-    const segment = req.nextUrl.searchParams.get("segment") ?? "all";
+    const rawSegment = req.nextUrl.searchParams.get("segment") ?? "all";
+    const segment = rawSegment === "all" || isValidSegment(rawSegment) ? rawSegment : "all";
     const refresh = req.nextUrl.searchParams.get("refresh") === "1";
 
     // Serve from cache if fresh
@@ -221,8 +228,10 @@ export async function GET(req: NextRequest) {
 
     return Response.json(filtered);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[/api/quotes]", message);
-    return Response.json({ error: message }, { status: 500 });
+    console.error("[/api/quotes]", err instanceof Error ? err.message : err);
+    return Response.json(
+      { error: "An internal error occurred. Please try again." },
+      { status: 500 }
+    );
   }
 }

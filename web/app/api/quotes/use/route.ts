@@ -1,11 +1,17 @@
 import { NextRequest } from "next/server";
 import { getSupabase } from "@/lib/supabase";
+import { createRateLimiter } from "@/lib/rateLimit";
+
+const limiter = createRateLimiter({ windowMs: 60_000, max: 20 });
 
 // POST /api/quotes/use
 // Body: { id: string }
 // Marks a mined quote as used (behavioral signal for AI training)
 
 export async function POST(req: NextRequest) {
+  const limited = limiter.check(req);
+  if (limited) return limited;
+
   try {
     const { id } = await req.json();
     if (!id) {
@@ -23,8 +29,10 @@ export async function POST(req: NextRequest) {
 
     return Response.json({ ok: true });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[/api/quotes/use]", message);
-    return Response.json({ error: message }, { status: 500 });
+    console.error("[/api/quotes/use]", err instanceof Error ? err.message : err);
+    return Response.json(
+      { error: "An internal error occurred. Please try again." },
+      { status: 500 }
+    );
   }
 }

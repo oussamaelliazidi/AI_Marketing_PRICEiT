@@ -3,10 +3,19 @@ import { NextRequest } from "next/server";
 import { scoreContent, QUALITY_THRESHOLD } from "@/lib/contentScorer";
 import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
 import { getSupabase } from "@/lib/supabase";
+import { createRateLimiter } from "@/lib/rateLimit";
+import {
+  isValidFormat,
+  isValidVoice,
+  isValidSegment,
+  checkLength,
+  MAX_TOPIC_LENGTH,
+} from "@/lib/validateInput";
 
 const client = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
+const limiter = createRateLimiter({ windowMs: 60_000, max: 10 });
 
 
 const STYLE_GUIDE = `
@@ -206,6 +215,9 @@ Write it now.`;
 // ── Route handler ──────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const limited = limiter.check(req);
+  if (limited) return limited;
+
   try {
     const { format, segment, topic, tone, voice } = await req.json();
 
@@ -216,6 +228,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!isValidFormat(format)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid format" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!isValidSegment(segment)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid segment" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const topicErr = checkLength("topic", topic, MAX_TOPIC_LENGTH);
+    if (topicErr) return topicErr;
+
+    const voiceKey: VoiceType = isValidVoice(voice) ? voice : "street";
+
     const MAX_ATTEMPTS = 3;
     let bestContent = "";
     let bestScore = 0;
@@ -225,7 +256,7 @@ export async function POST(req: NextRequest) {
     // ── Internal quality loop (non-streaming) ──────────────────────────────
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       usedAttempts = attempt;
-      const messages = buildMessages(format, segment, topic, tone, (voice as VoiceType) || "street");
+      const messages = buildMessages(format, segment, topic, tone, voiceKey);
 
       const completion = await client.chat.completions.create({
         model: "llama-3.3-70b-versatile",
@@ -257,8 +288,8 @@ export async function POST(req: NextRequest) {
       .from("content_generations")
       .insert({
         format,
-        voice:         (voice as VoiceType) || "street",
-        segment:       segment || "unknown",
+        voice:         voiceKey,
+        segment,
         topic:         topic   || null,
         content:       bestContent,
         quality_score: finalScore,
@@ -287,10 +318,9 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[/api/generate]", message);
+    console.error("[/api/generate]", err instanceof Error ? err.message : err);
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: "An internal error occurred. Please try again." }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }

@@ -3,8 +3,17 @@ import { NextRequest } from "next/server";
 import { scoreContent } from "@/lib/contentScorer";
 import { VoiceType, VOICE_PROMPTS } from "@/lib/voices";
 import { getSupabase } from "@/lib/supabase";
+import { createRateLimiter } from "@/lib/rateLimit";
+import {
+  isValidFormat,
+  isValidVoice,
+  isValidSegment,
+  checkLength,
+  MAX_CONTENT_LENGTH,
+} from "@/lib/validateInput";
 
 const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const limiter = createRateLimiter({ windowMs: 60_000, max: 10 });
 
 // ── Format instructions (same voice rules, different shape) ────────────────
 
@@ -67,6 +76,9 @@ const FORMAT_LABELS: Record<string, string> = {
 // ── Route ──────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const limited = limiter.check(req);
+  if (limited) return limited;
+
   try {
     const { content, sourceFormat, targetFormat, segment, voice } = await req.json();
 
@@ -77,10 +89,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const lengthErr = checkLength("content", content, MAX_CONTENT_LENGTH);
+    if (lengthErr) return lengthErr;
+
+    if (!isValidFormat(targetFormat)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid target format" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
     const targetInstructions = FORMAT_INSTRUCTIONS[targetFormat];
     if (!targetInstructions) {
       return new Response(
-        JSON.stringify({ error: `Unknown format: ${targetFormat}` }),
+        JSON.stringify({ error: "Unsupported format" }),
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -88,7 +110,8 @@ export async function POST(req: NextRequest) {
     const sourceLabel = FORMAT_LABELS[sourceFormat] ?? sourceFormat;
     const targetLabel = FORMAT_LABELS[targetFormat] ?? targetFormat;
 
-    const voiceKey = (voice as VoiceType) || "street";
+    const voiceKey: VoiceType = isValidVoice(voice) ? voice : "street";
+    const safeSegment = isValidSegment(segment) ? segment : "unknown";
     const systemPrompt = `You repurpose marketing content for PRICEIT — an AI construction pricing platform.
 
 PRICEIT lets contractors price any job in under 2 minutes.
@@ -97,7 +120,7 @@ ${VOICE_PROMPTS[voiceKey]}
 
 Additional repurpose rule: Keep the same story, characters, and numbers from the source — don't invent new facts. Reshape structure and length to fit the target platform.`;
 
-    const userPrompt = `Here is a ${sourceLabel} for a ${segment === "large_firm" ? "large construction firm" : "small contractor"} audience:
+    const userPrompt = `Here is a ${sourceLabel} for a ${safeSegment === "large_firm" ? "large construction firm" : "small contractor"} audience:
 
 ---
 ${content}
@@ -143,8 +166,8 @@ Write it now.`;
         target_format:      targetFormat,
         source_content:     content,
         repurposed_content: bestContent,
-        voice:              (voice as VoiceType) || "street",
-        segment:            segment || "unknown",
+        voice:              voiceKey,
+        segment:            safeSegment,
         quality_score:      bestScore,
       })
       .then(({ error }) => {
@@ -165,10 +188,9 @@ Write it now.`;
       },
     });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("[/api/repurpose]", message);
+    console.error("[/api/repurpose]", err instanceof Error ? err.message : err);
     return new Response(
-      JSON.stringify({ error: message }),
+      JSON.stringify({ error: "An internal error occurred. Please try again." }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
