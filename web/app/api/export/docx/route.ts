@@ -111,7 +111,9 @@ export async function POST(req: NextRequest) {
     const contentErr = checkLength("content", content, MAX_CONTENT_LENGTH);
     if (contentErr) return contentErr;
 
-    const topicErr = checkLength("topic", typeof topic === "string" ? topic : undefined, MAX_TOPIC_LENGTH);
+    const safeTopic  = typeof topic === "string" ? topic : undefined;
+
+    const topicErr = checkLength("topic", safeTopic, MAX_TOPIC_LENGTH);
     if (topicErr) return topicErr;
 
     const formatKey  = typeof format === "string" ? format : "";
@@ -179,10 +181,10 @@ export async function POST(req: NextRequest) {
             }),
 
             // Topic line (if provided)
-            ...(topic
+            ...(safeTopic
               ? [new Paragraph({
                   spacing: { before: 0, after: 80 },
-                  children: [new TextRun({ text: `Topic: ${topic}`, size: 20, color: "666666", italics: true, font: "Arial" })],
+                  children: [new TextRun({ text: `Topic: ${safeTopic}`, size: 20, color: "666666", italics: true, font: "Arial" })],
                 })]
               : []),
 
