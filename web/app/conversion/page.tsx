@@ -309,6 +309,16 @@ export default function ConversionPage() {
             {result && grade && (
               <div className="space-y-5">
 
+                {/* No page content warning */}
+                {!pageContent.trim() && (
+                  <div className="bg-yellow-400/8 border border-yellow-400/25 rounded-lg px-4 py-3 flex items-start gap-2.5">
+                    <span className="text-yellow-400 text-sm mt-0.5">⚠</span>
+                    <div className="text-xs text-yellow-300/80 leading-relaxed">
+                      <span className="font-semibold">Headline-only audit.</span> Score reflects your headline alone — Social Proof, CTA, and Urgency are 0 without page copy. Paste your landing page body below to get a full score.
+                    </div>
+                  </div>
+                )}
+
                 {/* Overall score */}
                 <div className={`bg-zinc-900 border ${grade.ring} rounded-lg p-5 flex items-center justify-between`}>
                   <div>
