@@ -4,6 +4,7 @@ import {
   AlignmentType, HeadingLevel, BorderStyle, PageNumber,
   LevelFormat,
 } from "docx";
+import { checkLength, MAX_CONTENT_LENGTH, MAX_TOPIC_LENGTH } from "@/lib/validateInput";
 
 // ── Format labels ──────────────────────────────────────────────────────────
 
@@ -84,15 +85,44 @@ function buildParagraphs(text: string): Paragraph[] {
 
 export async function POST(req: NextRequest) {
   try {
-    const { content, format, voice, segment, topic } = await req.json();
-
-    if (!content || typeof content !== "string") {
-      return Response.json({ error: "content is required" }, { status: 400 });
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json(
+        { error: "Invalid JSON in request body" },
+        { status: 400 }
+      );
     }
 
-    const formatLabel  = FORMAT_LABELS[format]  ?? format  ?? "Content";
-    const voiceLabel   = VOICE_LABELS[voice]    ?? voice   ?? "";
-    const segmentLabel = SEGMENT_LABELS[segment] ?? segment ?? "";
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      return Response.json(
+        { error: "Request body must be a JSON object" },
+        { status: 400 }
+      );
+    }
+
+    const { content, format, voice, segment, topic } = body as Record<string, unknown>;
+
+    if (!content || typeof content !== "string") {
+      return Response.json({ error: "content is required and must be a string" }, { status: 400 });
+    }
+
+    const contentErr = checkLength("content", content, MAX_CONTENT_LENGTH);
+    if (contentErr) return contentErr;
+
+    const safeTopic  = typeof topic === "string" ? topic : undefined;
+
+    const topicErr = checkLength("topic", safeTopic, MAX_TOPIC_LENGTH);
+    if (topicErr) return topicErr;
+
+    const formatKey  = typeof format === "string" ? format : "";
+    const voiceKey   = typeof voice === "string" ? voice : "";
+    const segmentKey = typeof segment === "string" ? segment : "";
+
+    const formatLabel  = FORMAT_LABELS[formatKey]  ?? "Content";
+    const voiceLabel   = VOICE_LABELS[voiceKey]    ?? "";
+    const segmentLabel = SEGMENT_LABELS[segmentKey] ?? "";
     const date         = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 
     const metaParts = [segmentLabel, voiceLabel, date].filter(Boolean);
@@ -151,10 +181,10 @@ export async function POST(req: NextRequest) {
             }),
 
             // Topic line (if provided)
-            ...(topic
+            ...(safeTopic
               ? [new Paragraph({
                   spacing: { before: 0, after: 80 },
-                  children: [new TextRun({ text: `Topic: ${topic}`, size: 20, color: "666666", italics: true, font: "Arial" })],
+                  children: [new TextRun({ text: `Topic: ${safeTopic}`, size: 20, color: "666666", italics: true, font: "Arial" })],
                 })]
               : []),
 
