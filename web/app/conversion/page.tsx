@@ -60,6 +60,33 @@ export default function ConversionPage() {
   const [error, setError]             = useState("");
   const [result, setResult]           = useState<ConversionAuditResult | null>(null);
   const [copiedIdx, setCopiedIdx]     = useState<number | null>(null);
+  const [variantScores, setVariantScores] = useState<Record<number, number>>({});
+  const [testingIdx, setTestingIdx]   = useState<number | null>(null);
+
+  async function testVariant(variant: string, idx: number) {
+    if (testingIdx !== null) return;
+    setTestingIdx(idx);
+    try {
+      const res = await fetch("/api/conversion-audit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          headline:    variant,
+          pageContent: pageContent.trim() || undefined,
+          pageUrl:     pageUrl.trim()     || undefined,
+          segment,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && typeof data.overall_score === "number") {
+        setVariantScores((prev) => ({ ...prev, [idx]: data.overall_score }));
+      }
+    } catch {
+      // silent — button just resets
+    } finally {
+      setTestingIdx(null);
+    }
+  }
 
   async function runAudit() {
     if (isAuditing || !headline.trim()) return;
@@ -101,6 +128,7 @@ export default function ConversionPage() {
     setPageUrl("");
     setError("");
     setResult(null);
+    setVariantScores({});
   }
 
   const grade = result ? overallGrade(result.overall_score) : null;
@@ -363,29 +391,98 @@ export default function ConversionPage() {
                   </div>
                 </div>
 
-                {/* Headline variants */}
+                {/* Headline variants — A/B tester */}
                 <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-                  <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-3">
-                    Headline Alternatives
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">
+                      A/B Headline Variants
+                    </div>
+                    <div className="text-xs text-zinc-600">Hit "Test" to score each vs your original</div>
                   </div>
+
+                  {/* Original baseline */}
+                  <div className="mb-3 flex items-center gap-3 bg-zinc-800/60 border border-zinc-700 rounded-lg px-4 py-2.5">
+                    <span className="text-xs font-bold text-zinc-500 w-14 flex-shrink-0">ORIGINAL</span>
+                    <span className="text-sm text-zinc-400 flex-1 leading-snug italic">{headline}</span>
+                    <span className="flex-shrink-0 text-xs font-black text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 rounded px-2 py-0.5">
+                      {result.overall_score}
+                    </span>
+                  </div>
+
                   <div className="space-y-2">
-                    {result.headline_variants.map((variant, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-start gap-3 bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-3"
-                      >
-                        <span className="text-zinc-600 text-xs mt-0.5 flex-shrink-0">
-                          {["Speed", "Money", "Pain"][idx] ?? `${idx + 1}`}
-                        </span>
-                        <span className="text-sm text-zinc-100 flex-1 leading-snug">{variant}</span>
-                        <button
-                          onClick={() => copyVariant(variant, idx)}
-                          className="flex-shrink-0 text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-400 hover:text-white transition-all"
+                    {result.headline_variants.map((variant, idx) => {
+                      const vScore   = variantScores[idx];
+                      const isTesting = testingIdx === idx;
+                      const delta    = vScore !== undefined ? vScore - result.overall_score : null;
+                      const angleLabel = (["⚡ Speed", "💰 Money", "🔥 Pain"] as const)[idx] ?? `Variant ${idx + 1}`;
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`rounded-lg border px-4 py-3 transition-all ${
+                            vScore !== undefined
+                              ? delta! > 0
+                                ? "border-green-400/40 bg-green-400/5"
+                                : delta! < 0
+                                  ? "border-red-400/30 bg-red-400/5"
+                                  : "border-zinc-600 bg-zinc-800"
+                              : "border-zinc-700 bg-zinc-800"
+                          }`}
                         >
-                          {copiedIdx === idx ? "✓" : "Copy"}
-                        </button>
-                      </div>
-                    ))}
+                          <div className="flex items-start gap-3">
+                            <span className="text-xs text-zinc-500 mt-0.5 flex-shrink-0 w-16">{angleLabel}</span>
+                            <span className="text-sm text-zinc-100 flex-1 leading-snug">{variant}</span>
+
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {/* Score badge */}
+                              {vScore !== undefined && (
+                                <div className="flex items-center gap-1">
+                                  <span className={`text-xs font-black px-2 py-0.5 rounded border ${
+                                    delta! > 0
+                                      ? "text-green-400 bg-green-400/10 border-green-400/30"
+                                      : delta! < 0
+                                        ? "text-red-400 bg-red-400/10 border-red-400/30"
+                                        : "text-zinc-400 bg-zinc-700 border-zinc-600"
+                                  }`}>
+                                    {vScore}
+                                  </span>
+                                  <span className={`text-xs font-bold ${delta! > 0 ? "text-green-400" : delta! < 0 ? "text-red-400" : "text-zinc-500"}`}>
+                                    {delta! > 0 ? `+${delta}` : delta}
+                                  </span>
+                                  {delta! > 0 && (
+                                    <span className="text-xs text-green-400 font-bold">Winner ✓</span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Test button */}
+                              {vScore === undefined && (
+                                <button
+                                  onClick={() => testVariant(variant, idx)}
+                                  disabled={isTesting || testingIdx !== null}
+                                  className="text-xs px-2.5 py-1 rounded bg-yellow-400/15 border border-yellow-400/30 text-yellow-400 hover:bg-yellow-400/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  {isTesting ? (
+                                    <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                    </svg>
+                                  ) : "Test"}
+                                </button>
+                              )}
+
+                              {/* Copy */}
+                              <button
+                                onClick={() => copyVariant(variant, idx)}
+                                className="text-xs px-2 py-1 rounded bg-zinc-700 hover:bg-zinc-600 text-zinc-400 hover:text-white transition-all"
+                              >
+                                {copiedIdx === idx ? "✓" : "Copy"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
