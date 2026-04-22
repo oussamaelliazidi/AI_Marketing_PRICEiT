@@ -61,31 +61,38 @@ export default function ConversionPage() {
   const [result, setResult]           = useState<ConversionAuditResult | null>(null);
   const [copiedIdx, setCopiedIdx]     = useState<number | null>(null);
   const [variantScores, setVariantScores] = useState<Record<number, number>>({});
+  const [originalHeadlineScore, setOriginalHeadlineScore] = useState<number | null>(null);
   const [testingIdx, setTestingIdx]   = useState<number | null>(null);
+
+  async function scoreHeadline(text: string): Promise<number | null> {
+    try {
+      const res = await fetch("/api/headline-score", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ headline: text, segment }),
+      });
+      const data = await res.json();
+      return res.ok && typeof data.score === "number" ? data.score : null;
+    } catch {
+      return null;
+    }
+  }
 
   async function testVariant(variant: string, idx: number) {
     if (testingIdx !== null) return;
     setTestingIdx(idx);
-    try {
-      const res = await fetch("/api/conversion-audit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          headline:    variant,
-          pageContent: pageContent.trim() || undefined,
-          pageUrl:     pageUrl.trim()     || undefined,
-          segment,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok && typeof data.overall_score === "number") {
-        setVariantScores((prev) => ({ ...prev, [idx]: data.overall_score }));
-      }
-    } catch {
-      // silent — button just resets
-    } finally {
-      setTestingIdx(null);
+
+    // Score original headline on first test (for fair headline-only comparison)
+    if (originalHeadlineScore === null) {
+      const origScore = await scoreHeadline(headline);
+      if (origScore !== null) setOriginalHeadlineScore(origScore);
     }
+
+    const score = await scoreHeadline(variant);
+    if (score !== null) {
+      setVariantScores((prev) => ({ ...prev, [idx]: score }));
+    }
+    setTestingIdx(null);
   }
 
   async function runAudit() {
@@ -129,6 +136,7 @@ export default function ConversionPage() {
     setError("");
     setResult(null);
     setVariantScores({});
+    setOriginalHeadlineScore(null);
   }
 
   const grade = result ? overallGrade(result.overall_score) : null;
@@ -405,15 +413,16 @@ export default function ConversionPage() {
                     <span className="text-xs font-bold text-zinc-500 w-14 flex-shrink-0">ORIGINAL</span>
                     <span className="text-sm text-zinc-400 flex-1 leading-snug italic">{headline}</span>
                     <span className="flex-shrink-0 text-xs font-black text-yellow-400 bg-yellow-400/10 border border-yellow-400/30 rounded px-2 py-0.5">
-                      {result.overall_score}
+                      {originalHeadlineScore !== null ? originalHeadlineScore : "—"}
                     </span>
                   </div>
 
                   <div className="space-y-2">
                     {result.headline_variants.map((variant, idx) => {
-                      const vScore   = variantScores[idx];
+                      const vScore    = variantScores[idx];
                       const isTesting = testingIdx === idx;
-                      const delta    = vScore !== undefined ? vScore - result.overall_score : null;
+                      const baseline  = originalHeadlineScore ?? result.overall_score;
+                      const delta     = vScore !== undefined ? vScore - baseline : null;
                       const angleLabel = (["⚡ Speed", "💰 Money", "🔥 Pain"] as const)[idx] ?? `Variant ${idx + 1}`;
 
                       return (
