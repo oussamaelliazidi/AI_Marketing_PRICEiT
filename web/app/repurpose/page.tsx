@@ -248,9 +248,7 @@ export default function RepurposePage() {
               ↺ Reset
             </button>
           )}
-          <Link href="/generate" className="text-zinc-400 text-sm hover:text-white transition-colors">Content Engine →</Link>
-          <Link href="/history"  className="text-zinc-400 text-sm hover:text-white transition-colors">History →</Link>
-          <Link href="/"         className="text-zinc-400 text-sm hover:text-white transition-colors">← Back</Link>
+          <Link href="/tools" className="text-zinc-400 text-sm hover:text-white transition-colors">← All Tools</Link>
         </div>
       </nav>
 

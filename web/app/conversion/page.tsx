@@ -158,14 +158,8 @@ export default function ConversionPage() {
               ↺ Reset
             </button>
           )}
-          <Link href="/generate" className="text-zinc-400 text-sm hover:text-white transition-colors">
-            Content Engine →
-          </Link>
-          <Link href="/seo" className="text-zinc-400 text-sm hover:text-white transition-colors">
-            SEO Engine →
-          </Link>
-          <Link href="/" className="text-zinc-400 text-sm hover:text-white transition-colors">
-            ← Back
+          <Link href="/tools" className="text-zinc-400 text-sm hover:text-white transition-colors">
+            ← All Tools
           </Link>
         </div>
       </nav>
