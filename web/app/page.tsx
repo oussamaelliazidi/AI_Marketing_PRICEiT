@@ -168,24 +168,21 @@ export default function Home() {
         <span className="text-xl font-black tracking-tight">
           PRICE<span className="text-yellow-400">IT</span>
         </span>
-        <div className="flex items-center gap-5">
-          <a href="/generate" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
-            Content engine
+        <div className="flex items-center gap-6">
+          <a href="#how-it-works" className="text-sm font-medium text-zinc-500 hover:text-white transition-colors">
+            How it works
           </a>
-          <a href="/seo" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
-            SEO engine
+          <a href="#why-priceit" className="text-sm font-medium text-zinc-500 hover:text-white transition-colors">
+            Why PRICEIT
           </a>
-          <a href="/repurpose" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
-            Repurpose
+          <a href="#faq" className="text-sm font-medium text-zinc-500 hover:text-white transition-colors">
+            FAQ
           </a>
-          <a href="/conversion" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
-            Conversion audit
+          <a href="/pitch" className="text-sm font-medium text-yellow-400 hover:text-yellow-300 transition-colors">
+            Get the Deck →
           </a>
-          <a href="/history" className="text-sm font-medium text-zinc-500 hover:text-yellow-400 transition-colors">
-            History
-          </a>
-          <a href="#waitlist" className="text-sm font-medium text-gray-400 hover:text-white transition-colors">
-            Join beta →
+          <a href="#waitlist" className="text-sm font-bold bg-yellow-400 text-black px-4 py-2 rounded-lg hover:bg-yellow-300 transition-colors">
+            Join beta
           </a>
         </div>
       </nav>
@@ -206,6 +203,13 @@ export default function Home() {
         </p>
         <WaitlistForm />
 
+        <p className="text-gray-600 text-sm mt-4">
+          Investor or partner?{" "}
+          <a href="/pitch" className="text-yellow-400 hover:underline">
+            Get the CEO pitch deck →
+          </a>
+        </p>
+
         {/* Stats */}
         <div className="flex items-center gap-6 mt-16 text-sm text-gray-500">
           <div className="flex flex-col items-center">
@@ -223,7 +227,7 @@ export default function Home() {
       </section>
 
       {/* Pain Points */}
-      <section className="px-6 py-20 border-t border-white/5">
+      <section id="why-priceit" className="px-6 py-20 border-t border-white/5">
         <div className="max-w-4xl mx-auto">
           <p className="text-yellow-400 text-xs font-bold uppercase tracking-widest text-center mb-3">Why PRICEIT</p>
           <h2 className="text-3xl sm:text-4xl font-black text-center mb-12">Built for the way you actually work</h2>
@@ -241,7 +245,7 @@ export default function Home() {
       </section>
 
       {/* How it works */}
-      <section className="px-6 py-20 border-t border-white/5 bg-white/2">
+      <section id="how-it-works" className="px-6 py-20 border-t border-white/5 bg-white/2">
         <div className="max-w-4xl mx-auto">
           <p className="text-yellow-400 text-xs font-bold uppercase tracking-widest text-center mb-3">How it works</p>
           <h2 className="text-3xl sm:text-4xl font-black text-center mb-12">From scope to bid in 3 steps</h2>
@@ -258,7 +262,7 @@ export default function Home() {
       </section>
 
       {/* FAQ */}
-      <section className="px-6 py-20 border-t border-white/5">
+      <section id="faq" className="px-6 py-20 border-t border-white/5">
         <div className="max-w-2xl mx-auto">
           <p className="text-yellow-400 text-xs font-bold uppercase tracking-widest text-center mb-3">FAQ</p>
           <h2 className="text-3xl sm:text-4xl font-black text-center mb-12">Common questions</h2>
