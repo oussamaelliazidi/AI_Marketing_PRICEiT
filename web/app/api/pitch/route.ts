@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Send deck via Brevo
-  const deckUrl = "https://drive.google.com/file/d/1fSsrmQUwGS3CSt8LeQQ4TVWNKGVLnJlG/view?usp=sharing";
+  const deckUrl = "https://drive.google.com/file/d/1TFvd-QZg3qGEP1bwv1wKzVnGtNccFYDg/view?usp=sharing";
 
   const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
