@@ -306,6 +306,7 @@ export default function Home() {
       <footer className="px-8 py-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-700">
         <span className="font-black text-gray-600">PRICE<span className="text-yellow-400/50">IT</span></span>
         <span>© 2026 PRICEIT · Built for contractors who mean business</span>
+        <a href="/tools" className="text-gray-800 hover:text-gray-600 transition-colors">⚙</a>
       </footer>
     </main>
   );
