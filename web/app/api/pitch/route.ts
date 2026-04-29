@@ -25,7 +25,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Please select a segment." }, { status: 400 });
   }
 
-  const safeEmail = email.toLowerCase().trim();
+  const rawEmail = email.toLowerCase().trim();
+  const safeEmail = escapeHtml(rawEmail);
   const safeCompany = escapeHtml(company.trim().slice(0, 120));
   const segmentLabel = segment === "small_contractor" ? "Small Contractor" : "Large Firm";
 
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     await getSupabase()
       .from("waitlist")
       .upsert(
-        { email: safeEmail, segment, source: "pitch_page" },
+        { email: rawEmail, segment, source: "pitch_page" },
         { onConflict: "email", ignoreDuplicates: false }
       );
   } catch (_) {
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     },
     body: JSON.stringify({
       sender: { name: "PRICEIT", email: "freecsgon378@gmail.com" },
-      to: [{ email: safeEmail, name: safeCompany }],
+      to: [{ email: rawEmail, name: safeCompany }],
       subject: "Your PRICEIT CEO Pitch Deck 🏗️",
       htmlContent: `
         <div style="font-family:sans-serif;max-width:560px;margin:0 auto;background:#0d1a2a;color:#ffffff;padding:40px 32px;border-radius:12px;">
