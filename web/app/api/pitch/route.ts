@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
           </div>
 
           <p style="color:#4a5c70;font-size:13px;margin:0;">
-            Sent to ${safeEmail} · ${segmentLabel}<br/>
+            Sent to ${escapeHtml(safeEmail)} · ${segmentLabel}<br/>
             © 2026 PRICEIT · Price smarter. Win more. Build better.
           </p>
         </div>
