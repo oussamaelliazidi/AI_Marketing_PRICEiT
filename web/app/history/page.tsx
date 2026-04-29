@@ -108,10 +108,7 @@ export default function HistoryPage() {
           <span className="text-zinc-500 text-sm">/ Content History</span>
         </Link>
         <div className="flex items-center gap-4">
-          <Link href="/generate"   className="text-zinc-400 text-sm hover:text-white transition-colors">Content Engine →</Link>
-          <Link href="/seo"        className="text-zinc-400 text-sm hover:text-white transition-colors">SEO Engine →</Link>
-          <Link href="/conversion" className="text-zinc-400 text-sm hover:text-white transition-colors">Conversion →</Link>
-          <Link href="/"           className="text-zinc-400 text-sm hover:text-white transition-colors">← Back</Link>
+          <Link href="/tools" className="text-zinc-400 text-sm hover:text-white transition-colors">← All Tools</Link>
         </div>
       </nav>
 
