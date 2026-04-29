@@ -13,9 +13,10 @@ function escapeHtml(str: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { email, segment } = await req.json();
+  const body = await req.json().catch(() => ({}));
+  const { email, segment } = body;
 
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  if (!email || typeof email !== "string" || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: "Invalid email address." }, { status: 400 });
   }
 
