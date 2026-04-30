@@ -85,18 +85,44 @@ const SEGMENTS: SegmentOption[] = [
 
 const TOPIC_SUGGESTIONS: Record<Segment, string[]> = {
   small_contractor: [
-    "Stop under-bidding on roofing jobs",
-    "Pricing a 3-trade job in under 2 minutes",
-    "How to win more bids without cutting margin",
-    "The cost of one bad estimate",
-    "From spreadsheet chaos to instant quotes",
+    "The 3 pricing mistakes costing you thousands every month",
+    "How to price any job in 2 minutes — no spreadsheet",
+    "Why you're losing money on jobs you priced correctly",
+    "The real cost of a $35/hr tradesperson (it's closer to $55)",
+    "From gut-feel quotes to winning on math",
+    "Stop under-bidding — use this formula before every quote",
   ],
   large_firm: [
-    "Cutting 3-day estimates to same-day",
+    "Cutting 3-day estimates to same-day turnaround",
     "Audit trail on every pricing decision",
-    "Estimating team bottleneck kills bid volume",
-    "Margin misses on commercial fit-outs",
+    "Estimating team bottleneck killing your bid volume",
+    "Margin misses on commercial fit-outs — what's going wrong",
     "60% less estimating time, same accuracy",
+    "Professional proposals that win against international competitors",
+  ],
+};
+
+// YouTube competitive analysis — top performing angles (125 videos analysed)
+const YOUTUBE_TOPICS: Record<Segment, string[]> = {
+  small_contractor: [
+    "NEVER price a construction job without checking this first",
+    "The 30-second rule before sending any quote",
+    "3 numbers every contractor must know before quoting",
+    "One spreadsheet formula that can ruin your business",
+    "Why your competitor always beats you on price",
+    "How to add overhead to a quote (most contractors skip this)",
+    "The difference between turnover and profit",
+    "Watch me build a $40,000 quote in under 2 minutes",
+  ],
+  large_firm: [
+    "What Procore costs vs what PRICEIT costs — honest comparison",
+    "AI-powered pricing walkthrough for construction firms",
+    "How winning GCC contractors price faster and win more bids",
+    "Villa fit-out pricing in Dubai — step by step",
+    "UAE contractors: stop pricing fit-out like structural work",
+    "How to build payment delay buffer into your GCC quotes",
+    "Professional proposals that win in the Dubai/Abu Dhabi market",
+    "VAT in construction quotes — UAE 5% vs Saudi 15%",
   ],
 };
 
@@ -479,6 +505,27 @@ export default function GeneratePage() {
                     {s}
                   </button>
                 ))}
+              </div>
+
+              {/* ── YouTube Angles (from 125-video competitive analysis) ── */}
+              <div className="mt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-zinc-500 uppercase tracking-widest">
+                    📺 YouTube angles
+                  </span>
+                  <span className="text-[10px] text-zinc-700">proven high-view topics</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {YOUTUBE_TOPICS[segment].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setTopic(s)}
+                      className="text-xs px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/60 hover:border-yellow-400/40 rounded-full text-zinc-500 hover:text-yellow-400 transition-all"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* ── Phase 4: From Industry ── */}
